@@ -15,12 +15,12 @@ int main(int argc, char *argv[]){
   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   
-  //Eigen::initParallel();
-  //Eigen::setNbThreads(64);
+  Eigen::initParallel();
+  Eigen::setNbThreads(12);
 
   // initialisation of the twisted mass stuff - MUST BE the first thing to do
   int verbose = 1; // set to 1 to make tmLQCD more verbose
-  tmLQCD_invert_init(argc, argv, verbose);
+  tmLQCD_invert_init(argc, argv, verbose, myid);
   MPI_Barrier(MPI_COMM_WORLD);
 
   // initialisation of distillery
@@ -46,6 +46,8 @@ int main(int argc, char *argv[]){
   for(size_t i = 0; i < nb_of_inversions; ++i)
         sources[i] = new std::complex<double>[length];
 
+  std::complex<double>* propagator = new std::complex<double>[length];
+
   // loop over random vectors
   for(size_t rnd_id = 0; rnd_id < param.nb_rnd; ++rnd_id) {
     // source creation
@@ -56,16 +58,18 @@ int main(int argc, char *argv[]){
         for(size_t dil_d = 0; dil_d < param.dilution_size_so[2]; ++dil_d){        
 
           if(myid == 0) 
-            std::cout << "\t\nDoing inversions at: " << dil_t << "\t" << dil_e 
-                      << "\t" << dil_d << "\n" << std::endl;
+            std::cout << "\t\nDoing inversions at: t = " << dil_t << "\t e = " << dil_e 
+                      << "\t d = " << dil_d << "\n" << std::endl;
   
           // tmLQCD can also write the propagator, if requested
           unsigned int op_id = 0;
           unsigned int write_prop = 0;
           size_t i = param.dilution_size_so[2]*
                      (param.dilution_size_so[1]*dil_t+dil_e) + dil_d;
-          tmLQCD_invert((double *) sources[i], (double *) sources[i], op_id, 
-                        write_prop);
+          //tmLQCD_invert((double *) propagator, (double *) sources[i], op_id, write_prop);
+          invert_quda_direct((double*) propagator, (double*) sources[i], op_id, 1);
+          MPI_Barrier(MPI_COMM_WORLD);
+          memcpy((void*)sources[i], (void*)propagator, 2*sizeof(double)*length);
           MPI_Barrier(MPI_COMM_WORLD);
 
         }

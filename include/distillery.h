@@ -35,6 +35,12 @@ extern "C"
 #include "mpi.h"
 #include "omp.h"
 
+#undef complex
+
+extern "C" void zgemm_(char* TRANSA, char* TRANSB, const int* M,
+                       const int* N, const int* K, std::complex<double>* alpha, std::complex<double>* A,
+                       const int* LDA, std::complex<double>* B, const int* LDB, std::complex<double>* beta,
+                       std::complex<double>* C, const int* LDC); 
 
 namespace LapH {
 
@@ -95,7 +101,7 @@ private:
   void read_eigenvectors();
   void set_random_vector(const size_t rnd_id);
   void set_sink_random_vector(const size_t rnd_id, const size_t sink_id, 
-                              Eigen::VectorXcd& out);
+                              const size_t rnd_id_si, Eigen::VectorXcd& out);
   void read_random_vector();
   void write_random_vector_to_disk(const size_t rnd_id);
   void copy_to_V(const std::complex<double>* const eigen_vec, const int t,
@@ -103,9 +109,11 @@ private:
   // -------------------------- DATA -------------------------------------------
   Eigen::MatrixXcd* V;                // memory eigensystem
   std::vector<std::vector<
-    Eigen::MatrixXcd> > perambulator; // memory perambulator
+    std::vector<Eigen::MatrixXcd> > > 
+                        perambulator; // memory perambulator
   Eigen::VectorXcd* random_vector;    // memory random vector
-  std::vector<Eigen::VectorXcd> 
+  std::vector<
+      std::vector<Eigen::VectorXcd> >
                     random_vector_si; // memory random vector
   input_parameter param;              // all necessary input parameters
   tmLQCD_mpi_params* tmLQCD_params;   // tmLQCD MPI parameters
