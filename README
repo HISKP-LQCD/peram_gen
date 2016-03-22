@@ -1,0 +1,6 @@
+peram_gen by Bastian Knippschild, modified by Bartosz Kostrzewa.
+
+Implementation of stochastic LapH method for the generation of perambulators,
+specifically using the "invert_quda_direct" function for inversions
+on MultiGPU systems using the QUDA library and the QUDA interface
+of tmLQCD.
