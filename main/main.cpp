@@ -38,9 +38,8 @@ int main(int argc, char *argv[]){
   MPI_Barrier(MPI_COMM_WORLD);
 
   // preparing source creation -------------------------------------------------
-  size_t nb_of_inversions = param.dilution_size_so[0] * 
-                            param.dilution_size_so[1] *
-                            param.dilution_size_so[2];
+  size_t nb_of_inversions =  param.dilution_size_so[2];
+
   int length = 3*4*param.Lt*param.Ls*param.Ls*param.Ls/numprocs;
   std::complex<double>** sources = new std::complex<double>*[nb_of_inversions];
   for(size_t i = 0; i < nb_of_inversions; ++i)
@@ -55,6 +54,9 @@ int main(int argc, char *argv[]){
     // loop over all inversions
     for(size_t dil_t = 0; dil_t < param.dilution_size_so[0]; ++dil_t){
       for(size_t dil_e = 0; dil_e < param.dilution_size_so[1]; ++dil_e){        
+        
+        dis.create_source(dil_t,dil_e,sources);
+        
         for(size_t dil_d = 0; dil_d < param.dilution_size_so[2]; ++dil_d){        
 
           if(myid == 0) 
@@ -64,20 +66,20 @@ int main(int argc, char *argv[]){
           // tmLQCD can also write the propagator, if requested
           unsigned int op_id = 0;
           unsigned int write_prop = 0;
-          size_t i = param.dilution_size_so[2]*
-                     (param.dilution_size_so[1]*dil_t+dil_e) + dil_d;
           //tmLQCD_invert((double *) propagator, (double *) sources[i], op_id, write_prop);
-          invert_quda_direct((double*) propagator, (double*) sources[i], op_id, 1);
+          invert_quda_direct((double*) propagator, (double*) sources[dil_d], op_id, 1);
           MPI_Barrier(MPI_COMM_WORLD);
           memcpy((void*)sources[i], (void*)propagator, 2*sizeof(double)*length);
           MPI_Barrier(MPI_COMM_WORLD);
 
         }
+
+        dis.add_to_perambulator(dil_t,dil_e,sources);
+
       }
     } // end of loop over inversions
 
     // constructing the perambulator
-    dis.add_to_perambulator(sources);
     MPI_Barrier(MPI_COMM_WORLD);
     // creating new random vector and writing perambulator to disk -------------------
     dis.write_perambulator_to_disk(rnd_id); // ---------------------------------------

@@ -81,12 +81,14 @@ public:
   // creates all sources for inversions 
   // output:  sources -> complex vector to store the sources 
   void create_source(std::complex<double>** source);
+  void LapH::distillery::create_source(const size_t dil_t, const size_t dil_e, std::complex<double>** source);
   // multiplies a propagator with V^dagger and stores it in one column of
   // of the perambulator. The column number is computed with dil_t, dil_e,
   // and dil_d
   // input: propagator -> the propagator contains the inverted Dirac
   //                      operator
   void add_to_perambulator(const std::complex<double>* const * const propagator);
+  void add_to_perambulator(const size_t dil_t, const size_t dil_e, const std::complex<double>* const * const propagator);
   // writes the perambulator to disk
   // the indices from slow to fast: t -> Dirac -> eigenvectors :: This ordering
   // is important because it speeds up the multiplication with V^dagger which
