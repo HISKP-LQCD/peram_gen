@@ -49,8 +49,6 @@ int main(int argc, char *argv[]){
 
   // loop over random vectors
   for(size_t rnd_id = 0; rnd_id < param.nb_rnd; ++rnd_id) {
-    // source creation
-    dis.create_source(sources); 
     // loop over all inversions
     for(size_t dil_t = 0; dil_t < param.dilution_size_so[0]; ++dil_t){
       for(size_t dil_e = 0; dil_e < param.dilution_size_so[1]; ++dil_e){        
@@ -69,7 +67,7 @@ int main(int argc, char *argv[]){
           //tmLQCD_invert((double *) propagator, (double *) sources[i], op_id, write_prop);
           invert_quda_direct((double*) propagator, (double*) sources[dil_d], op_id, 1);
           MPI_Barrier(MPI_COMM_WORLD);
-          memcpy((void*)sources[i], (void*)propagator, 2*sizeof(double)*length);
+          memcpy((void*)sources[dil_d], (void*)propagator, 2*sizeof(double)*length);
           MPI_Barrier(MPI_COMM_WORLD);
 
         }

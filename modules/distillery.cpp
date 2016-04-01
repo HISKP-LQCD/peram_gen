@@ -306,6 +306,11 @@ void LapH::distillery::create_source(const size_t dil_t, const size_t dil_e,
   for(size_t i = 0; i < param.dilution_size_so[2]; ++i)
     d_index[i] = new size_t[nb_of_dirac_combined];
 
+  for(size_t dil_d = 0; dil_d < param.dilution_size_so[2]; ++dil_d)
+    create_dilution_lookup(nb_of_dirac_combined, param.dilution_size_so[2],
+                           dil_d, param.dilution_type_so[2], d_index[dil_d]);
+
+
   // creating the source ---------------------------------------------------
   for(size_t t = 0; t < nb_of_nonzero_t; ++t){ 
 
@@ -528,7 +533,7 @@ void LapH::distillery::add_to_perambulator(const size_t dil_t, const size_t dil_
         std::vector<std::complex<double> > vec(dim_row*4*nb_of_inversions);
         
         // running over inversions
-        for(size_t dil_d = 0; dil_d < param.dilutions_size_so[2]; ++dil_d){
+        for(size_t dil_d = 0; dil_d < param.dilution_size_so[2]; ++dil_d){
 
           // running over all indices on one timeslice 
           // -> resorting propagator and copying it into vec
