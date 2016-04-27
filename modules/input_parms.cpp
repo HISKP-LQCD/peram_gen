@@ -144,6 +144,12 @@ static void check_dilution_input(const std::string type, const size_t max_size,
 // -----------------------------------------------------------------------------
 void LapH::input_parameter::check_input_parameters(){
 
+  if(peram_gen_omp_num_threads > 2 || peram_gen_omp_num_threads < 1){
+    std::cout << "The number of OMP threads for this version of peram_gen can only be 1 or 2! The selected value was " <<
+                 peram_gen_omp_num_threads << std::endl;
+    exit(1);
+  }
+
   if(config > 100000) {
     std::cout << "Please check whether configuration number is correct: " 
               << config << std::endl;
@@ -237,6 +243,9 @@ void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
   }
   // scan infile and check arguments ----------------------------------------
   // configs
+  peram_gen_omp_num_threads = 1;
+  reader += fscanf(infile, "omp_num_threads = %zu\n", &peram_gen_omp_num_threads);
+
   reader += fscanf(infile, "config = %zu \n", &config);
   reader += fscanf(infile, "total number of configs = %zu \n", &nb_config);
   reader += fscanf(infile, "distance between configs = %zu \n", &delta_config);
@@ -339,6 +348,7 @@ void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
 // -----------------------------------------------------------------------------
 void LapH::input_parameter::print_options() {
 
+  std::cout << "omp_num_threads = " << peram_gen_omp_num_threads << std::endl;
   std::cout << "config = " <<  config << std::endl;
   std::cout << "Ls = " <<  Ls << ", Lt = " <<  Lt << std::endl;
   std::cout << "nb_ev = " <<  nb_ev << ", nb_rnd = " <<  nb_rnd << std::endl;

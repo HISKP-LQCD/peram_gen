@@ -256,7 +256,18 @@ static void create_dilution_lookup(const size_t nb_of_nonzero_entries,
 }
 // -----------------------------------------------------------------------------
 // create sources for four Dirac components
-// ----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// For MPI implementations which do not support communications from multiple threads,
+// this version of the routine does not have any MPI commands.
+// The MPI_Barrier and MPI_Wtime present in the other version of the function
+// lead to random lockups and segmentation faults if present here. (they interact
+// with the MPI_Barrier calls from the GPU Dirac operator and CG)
+// As a result, there are no time measurements here. One could try to have a second
+// MPI_COMM_WORLD group (based on but unrelated to the default one), which might
+// allow MPI functions to be called here. nb: there are some MPI functions
+// which are always threadsafe, these could in principle be used here.
+// -BaKo
+// -----------------------------------------------------------------------------
 void LapH::distillery::create_source(const size_t dil_t, const size_t dil_e, 
                                     std::complex<double>** source){
   
@@ -264,9 +275,6 @@ void LapH::distillery::create_source(const size_t dil_t, const size_t dil_e,
     std::cout << "dilution is out of bounds in \"create_source\"" << std::endl;
     exit(0);
   }
-
-  MPI_Barrier(MPI_COMM_WORLD); 
-  double time1 = MPI_Wtime();
 
   const size_t Lt = param.Lt;
   const size_t Ls = param.Ls;
@@ -354,12 +362,6 @@ void LapH::distillery::create_source(const size_t dil_t, const size_t dil_e,
   ev_index = NULL;
   d_index = NULL;
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  int myid = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-  time1 = MPI_Wtime() - time1;
-  if(myid == 0)
-    std::cout << "\tTime for source creation: " << time1 << std::endl;
 }
 // -----------------------------------------------------------------------------
 void LapH::distillery::create_source(std::complex<double>** source) {
@@ -490,6 +492,18 @@ static size_t create_sink_dilution_index(const size_t xx, const size_t Ls,
   return 0;
 }
 // -----------------------------------------------------------------------------
+// addup partial perambulator
+// -----------------------------------------------------------------------------
+// For MPI implementations which do not support communications from multiple threads,
+// this version of the routine does not have any MPI commands.
+// The MPI_Barrier and MPI_Wtime present in the other version of the function
+// lead to random lockups and segmentation faults if present here. (they interact
+// with the MPI_Barrier calls from the GPU Dirac operator and CG)
+// As a result, there are no time measurements here. One could try to have a second
+// MPI_COMM_WORLD group (based on but unrelated to the default one), which might
+// allow MPI functions to be called here. nb: there are some MPI functions
+// which are always threadsafe, these could in principle be used here.
+// -BaKo
 // -----------------------------------------------------------------------------
 void LapH::distillery::add_to_perambulator(const size_t dil_t, const size_t dil_e,
                          const std::complex<double>* const * const propagator) {
@@ -499,16 +513,7 @@ void LapH::distillery::add_to_perambulator(const size_t dil_t, const size_t dil_
     exit(0);
   }
 
-  int myid = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-  MPI_Barrier(MPI_COMM_WORLD); 
-  double time1 = MPI_Wtime();
   Eigen::setNbThreads(1);
-  if(myid == 0){
-    std::cout << "\tBuilding Perambulator" << std::endl;
-    std::cout << "\tEigen will use " <<  Eigen::nbThreads() 
-              << " threads!" << std::endl;
-  }
 
   const size_t Lt = param.Lt;
   const size_t Ls = param.Ls;
@@ -528,9 +533,6 @@ void LapH::distillery::add_to_perambulator(const size_t dil_t, const size_t dil_
   for(size_t nbs = 0; nbs < param.nb_of_sinks; nbs++){
     // checking if smeared or stochastic sink must be computed
     if (!param.dilution_type_si[nbs][1].compare("F")){ // smeared sink
-      if(myid == 0){
-        std::cout << "\tadd_to_perambulator: Smeared sink" << std::endl;
-      }
       // running over sink time index
       for(size_t t = 0; t < T; ++t){
         if( param.use_zgemm ) {
@@ -680,11 +682,6 @@ void LapH::distillery::add_to_perambulator(const size_t dil_t, const size_t dil_
       } // end of loop over random sinks
     } // end of if else desision of sink type
   } // end of loop over sinks
-  MPI_Barrier(MPI_COMM_WORLD);
-  time1 = MPI_Wtime() - time1;
-  if(myid == 0)
-    std::cout << "\tTime for perambulator creation: " 
-              << time1 << std::endl;
 }
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------

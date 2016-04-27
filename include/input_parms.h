@@ -24,6 +24,7 @@ public:
   input_parameter() {
     rnd_id = NULL;
     seed = NULL;
+    use_zgemm = false;
   }; 
   // copy constructor
   input_parameter(const input_parameter& other);
@@ -77,6 +78,8 @@ public:
 
   bool use_zgemm;                  // for add_to_perambulator:  (true) -> use zgemm for multiplication with Vdagger
                                    //                          (false) -> use eigen multiplication
+
+  size_t peram_gen_omp_num_threads;// number of OpenMP threads                                                                                                           
 
   size_t nb_rnd;                   // random vector id of vector in process
   int* rnd_id;                     // id of random vectors
