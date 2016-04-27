@@ -75,6 +75,9 @@ public:
   size_t nb_ev;                    // number of eigenvectors
   size_t verbose;                  // displaying more informations
 
+  bool use_zgemm;                  // for add_to_perambulator:  (true) -> use zgemm for multiplication with Vdagger
+                                   //                          (false) -> use eigen multiplication
+
   size_t nb_rnd;                   // random vector id of vector in process
   int* rnd_id;                     // id of random vectors
   int* seed;                       // seeds for random vector generation

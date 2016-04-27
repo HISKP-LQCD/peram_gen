@@ -5,6 +5,10 @@
 
 #include "mpi.h"
 
+
+// TODO: add threading here to hide "add_to_perambulator" which takes between 30 and 60 seconds
+// and thus about as long as 4 strange quark inversions
+
 int main(int argc, char *argv[]){
 
   //MPI initialisation stuff

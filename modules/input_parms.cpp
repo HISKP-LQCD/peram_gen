@@ -256,6 +256,13 @@ void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
     reader += fscanf(infile, "id %i seed %i\n", rnd_id+i, seed+i);
   // verbosity
   reader += fscanf(infile, "verbose = %zu\n", &( verbose));
+  // zgemm multiplication in add_to_perambulator
+  {
+    size_t temp;
+    reader += fscanf(infile, "use_zgemm = %zu\n", &(temp));
+    use_zgemm = (bool)temp;
+  }
+
   // quarktype
   reader += fscanf(infile, "quarktype = %255s\n", readin);
   quarktype.assign(readin);
@@ -337,6 +344,7 @@ void LapH::input_parameter::print_options() {
   std::cout << "nb_ev = " <<  nb_ev << ", nb_rnd = " <<  nb_rnd << std::endl;
   std::cout << "seed = " <<  seed << std::endl;
   std::cout << "verbose = " <<  verbose << std::endl;
+  std::cout << "use_zgemm = " << use_zgemm << std::endl;
   std::cout << "quarktype = " <<  quarktype << std::endl;
   std::cout << "inversion source time: " <<  dilution_type_so[0] << " " 
             <<  dilution_size_so[0] << std::endl;

@@ -1,1 +1,1 @@
-Makefile.jureca.QUDA
+Makefile.qbig

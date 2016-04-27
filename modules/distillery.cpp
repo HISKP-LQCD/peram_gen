@@ -528,47 +528,84 @@ void LapH::distillery::add_to_perambulator(const size_t dil_t, const size_t dil_
   for(size_t nbs = 0; nbs < param.nb_of_sinks; nbs++){
     // checking if smeared or stochastic sink must be computed
     if (!param.dilution_type_si[nbs][1].compare("F")){ // smeared sink
+      if(myid == 0){
+        std::cout << "\tadd_to_perambulator: Smeared sink" << std::endl;
+      }
       // running over sink time index
-      for(size_t t = 0; t < T; ++t){ 
-        std::vector<std::complex<double> > vec(dim_row*4*nb_of_inversions);
-        
-        // running over inversions
-        for(size_t dil_d = 0; dil_d < param.dilution_size_so[2]; ++dil_d){
+      for(size_t t = 0; t < T; ++t){
+        if( param.use_zgemm ) {
+        // ZGEMM MULTIPLICATION 
+          
+          std::vector<std::complex<double> > vec(dim_row*4*nb_of_inversions);
+          
+          // running over inversions
+          for(size_t dil_d = 0; dil_d < param.dilution_size_so[2]; ++dil_d){
 
-          // running over all indices on one timeslice 
-          // -> resorting propagator and copying it into vec
-          size_t t_h = 12*Vs*t; // helper index
-          for(size_t x = 0; x < Vs; ++x){ // spatial
-            size_t x_h = t_h + 12*x;  // helper index
-            for(size_t d = 0; d < 4; ++d){      // Dirac
-              size_t d_h = x_h + 3*d; // helper index
-              for(size_t c = 0; c < 3; ++c){    // colour
-                 vec.at(4*nb_of_inversions*(3*x + c) + dil_d*4 + d) = propagator[dil_d][d_h + c];
-          }}}
-        
-        } // dil_d
+            // running over all indices on one timeslice 
+            // -> resorting propagator and copying it into vec
+            size_t t_h = 12*Vs*t; // helper index
+            for(size_t x = 0; x < Vs; ++x){ // spatial
+              size_t x_h = t_h + 12*x;  // helper index
+              for(size_t d = 0; d < 4; ++d){      // Dirac
+                size_t d_h = x_h + 3*d; // helper index
+                for(size_t c = 0; c < 3; ++c){    // colour
+                   vec.at(4*nb_of_inversions*(3*x + c) + dil_d*4 + d) = propagator[dil_d][d_h + c];
+            }}}
+          
+          } // dil_d
     
-        // multiplication with V^dagger and storing result in perambulator
-        std::vector<std::complex<double> > vec1(nb_ev*4*nb_of_inversions);
-        std::complex<double> zero(0.0, 0.0);
-        std::complex<double> one(1.0, 0.0);
-        std::string type = "C";
-        const int M = nb_ev;
-        const int N = 4*nb_of_inversions;
-        const int K = dim_row;
+          // multiplication with V^dagger and storing result in perambulator
+          std::vector<std::complex<double> > vec1(nb_ev*4*nb_of_inversions);
+          std::complex<double> zero(0.0, 0.0);
+          std::complex<double> one(1.0, 0.0);
+          std::string type = "C";
+          const int M = nb_ev;
+          const int N = 4*nb_of_inversions;
+          const int K = dim_row;
 
-        // BaKo: not sure if this is still correct now ...
-        Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, 
-                                           Eigen::RowMajor> Vt = V[t].adjoint();
-        zgemm_(&type[0], &type[0], &M, &N, &K, &one, Vt.data(), 
-               &K, &vec[0], &N, &zero, &vec1[0], &M);
-        
-        for(size_t dil_d = 0; dil_d < param.dilution_size_so[2]; ++dil_d){
-          for(size_t ev = 0; ev < nb_ev; ++ev) {
-            for(size_t d = 0; d < 4; ++d) {
-              const size_t col = dil_t*param.dilution_size_so[1]*param.dilution_size_so[2] + dil_e*param.dilution_size_so[2] + dil_d;
-              // BaKo: really not sure about the indexing on the RHS
-              (perambulator[nbs][0][t])(4*ev+d, col) = std::conj(vec1.at(ev + nb_ev*(4*dil_d+d)));
+          // BaKo: not sure if this is still correct now ...
+          Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, 
+                                             Eigen::RowMajor> Vt = V[t].adjoint();
+          zgemm_(&type[0], &type[0], &M, &N, &K, &one, Vt.data(), 
+                 &K, &vec[0], &N, &zero, &vec1[0], &M);
+          for(size_t dil_d = 0; dil_d < param.dilution_size_so[2]; ++dil_d){
+            for(size_t ev = 0; ev < nb_ev; ++ev) {
+              for(size_t d = 0; d < 4; ++d) {
+                const size_t col = dil_t*param.dilution_size_so[1]*param.dilution_size_so[2] + dil_e*param.dilution_size_so[2] + dil_d;
+                // BaKo: really not sure about the indexing on the RHS
+                (perambulator[nbs][0][t])(4*ev+d, col) = std::conj(vec1.at(ev + nb_ev*(4*dil_d+d)));
+              }
+            }
+          }
+        } else {
+
+          // EIGEN MULTIPLICATION
+          Eigen::MatrixXcd vec = Eigen::MatrixXcd::Zero(dim_row, 
+                                                              4*nb_of_inversions);
+          // running over inversions
+          for(size_t dil_d = 0; dil_d < param.dilution_size_so[2]; ++dil_d){
+            // running over all indices on one timeslice 
+            // -> resorting propagator and copying it into vec
+            size_t t_h = 12*Vs*t; // helper index
+            for(size_t x = 0; x < Vs; ++x){ // spatial
+              size_t x_h = t_h + 12*x;  // helper index
+              for(size_t d = 0; d < 4; ++d){      // Dirac
+                size_t d_h = x_h + 3*d; // helper index
+                for(size_t c = 0; c < 3; ++c){    // colour
+                   vec(3*x + c, dil_d*4 + d) = propagator[dil_d][d_h + c];
+            }}}
+          }
+    
+          // multiplication with V^dagger and storing result in perambulator
+          Eigen::MatrixXcd vec1 = Eigen::MatrixXcd::Zero(nb_ev, 
+                                                              4*nb_of_inversions);
+          vec1 = ((V[t]).adjoint())*vec;  
+          for(size_t dil_d = 0; dil_d < param.dilution_size_so[2]; ++dil_d){
+            for(size_t ev = 0; ev < nb_ev; ++ev) {
+              for(size_t d = 0; d < 4; ++d) {
+                const size_t col = dil_t*param.dilution_size_so[1]*param.dilution_size_so[2] + dil_e*param.dilution_size_so[2] + dil_d;
+                (perambulator[nbs][0][t])(4*ev+d, col) = vec1(ev, 4*dil_d+d);
+              }
             }
           }
         }
