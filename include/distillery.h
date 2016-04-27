@@ -109,7 +109,7 @@ private:
   void copy_to_V(const std::complex<double>* const eigen_vec, const int t,
                  const int nev);
   // -------------------------- DATA -------------------------------------------
-  Eigen::MatrixXcd* V;                // memory eigensystem
+  Eigen::MatrixXcf* V;                // memory eigensystem
   std::vector<std::vector<
     std::vector<Eigen::MatrixXcd> > > 
                         perambulator; // memory perambulator

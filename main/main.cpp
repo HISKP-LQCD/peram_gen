@@ -1,3 +1,5 @@
+#include <omp.h>
+
 #include "tmLQCD.h"
 
 #include "distillery.h"
@@ -63,8 +65,8 @@ int main(int argc, char *argv[]){
   
           // tmLQCD can also write the propagator, if requested
           unsigned int op_id = 0;
-          unsigned int write_prop = 0;
-          //tmLQCD_invert((double *) propagator, (double *) sources[i], op_id, write_prop);
+          // the 1 at the end indicates that we would like the gauge field to persist in device memory
+          // as a result, need to have one job per gauge configuration
           invert_quda_direct((double*) propagator, (double*) sources[dil_d], op_id, 1);
           MPI_Barrier(MPI_COMM_WORLD);
           memcpy((void*)sources[dil_d], (void*)propagator, 2*sizeof(double)*length);

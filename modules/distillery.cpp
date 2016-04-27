@@ -41,9 +41,9 @@ void LapH::distillery::initialise(const LapH::input_parameter& in_param) {
                                              tmLQCD_params->nproc_z);
 
   // Initializing memory for eigenvectors, perambulator and random vector
-  V = new Eigen::MatrixXcd[T];
+  V = new Eigen::MatrixXcf[T];
   for(size_t t = 0; t < T; ++t)
-    V[t] = Eigen::MatrixXcd::Zero(dim_row, param.nb_ev);
+    V[t] = Eigen::MatrixXcf::Zero(dim_row, param.nb_ev);
   
   perambulator.resize(nb_of_sinks);
   for(size_t nbs = 0; nbs < nb_of_sinks; nbs++){
@@ -150,7 +150,7 @@ void LapH::distillery::reset_all(const LapH::input_parameter& in_param){
                                tmLQCD_params->nproc_z);
   // eigen vectors
   for(size_t t = 0; t < T; ++t){
-    V[t] = Eigen::MatrixXcd::Zero(dim_row, param.nb_ev);
+    V[t] = Eigen::MatrixXcf::Zero(dim_row, param.nb_ev);
   }
   read_eigenvectors();  
   // perambulator
@@ -327,7 +327,7 @@ void LapH::distillery::create_source(const size_t dil_t, const size_t dil_e,
         size_t ev_h = ev_index[ev] * 4; // helper index 
         for(size_t d = 0; d < 4; ++d){
           S.col(d) += random_vector[time](ev_h+d) *
-                          (V[time_id]).col(ev_index[ev]); 
+                          ((V[time_id]).col(ev_index[ev])).cast < std::complex<double> >(); 
         }
       }
 
@@ -433,7 +433,7 @@ void LapH::distillery::create_source(std::complex<double>** source) {
             size_t ev_h = ev_index[ev] * 4; // helper index 
             for(size_t d = 0; d < 4; ++d){
               S.col(d) += random_vector[time](ev_h+d) *
-                              (V[time_id]).col(ev_index[ev]); 
+                              ((V[time_id]).col(ev_index[ev])).cast < std::complex<double> >(); 
             }
           }
 
@@ -559,7 +559,7 @@ void LapH::distillery::add_to_perambulator(const size_t dil_t, const size_t dil_
 
         // BaKo: not sure if this is still correct now ...
         Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, 
-                                           Eigen::RowMajor> Vt = V[t].adjoint();
+                                           Eigen::RowMajor> Vt = (V[t].adjoint()).cast< std::complex<double> >();
         zgemm_(&type[0], &type[0], &M, &N, &K, &one, Vt.data(), 
                &K, &vec[0], &N, &zero, &vec1[0], &M);
         
@@ -713,7 +713,7 @@ void LapH::distillery::add_to_perambulator(
         const int N = 4*nb_of_inversions;
         const int K = dim_row;
         Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, 
-                                           Eigen::RowMajor> Vt = V[t].adjoint();
+                                           Eigen::RowMajor> Vt = (V[t].adjoint()).cast < std::complex <double> >();
         zgemm_(&type[0], &type[0], &M, &N, &K, &one, Vt.data(), 
                &K, &vec[0], &N, &zero, &vec1[0], &M);
 
@@ -1077,7 +1077,7 @@ void LapH::distillery::copy_to_V(const std::complex<double>* const eigen_vec,
                                                              +  Z*pz + z) + c;
           // byte swap to change endianess
           //(V[t])(j, nev) = swap_complex(eigen_vec[i]);
-          (V[t])(j, nev) = eigen_vec[i];
+          (V[t])(j, nev) = (std::complex<float>)eigen_vec[i];
           j++;
 
         }
