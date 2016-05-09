@@ -545,8 +545,8 @@ void LapH::distillery::write_perambulator_to_disk(const size_t rnd_id) {
     if(myid == 0){
       // changing endianess
       for (size_t i = 0; i < size_perambulator_entry; i++)
-        perambulator_write[i] = swap_complex(perambulator_write[i]);
-        //perambulator_write[i] = perambulator_write[i];
+        //perambulator_write[i] = swap_complex(perambulator_write[i]);
+        perambulator_write[i] = perambulator_write[i];
       // data path
       std::string filename = param.outpath + "/perambulator";
       if(verbose) printf("writing perambulators from files:\n");
@@ -686,10 +686,10 @@ void LapH::distillery::write_random_vector_to_disk(size_t rnd_id){
       new std::complex<double>[rnd_vec_length];
   for(size_t t = 0; t < Lt; ++t)
     for(size_t row_i = 0; row_i < 4 * number_of_eigen_vec; ++row_i)
-      rnd_vec_write[row_i + t * rnd_vec_length/Lt] = 
-                                          swap_complex(random_vector[t](row_i));
       //rnd_vec_write[row_i + t * rnd_vec_length/Lt] = 
-      //                                    random_vector[t](row_i);
+      //                                    swap_complex(random_vector[t](row_i));
+      rnd_vec_write[row_i + t * rnd_vec_length/Lt] = 
+                                          random_vector[t](row_i);
 
   // creating name and path of outfile
   std::string filename = param.outpath + "/randomvector";
@@ -741,8 +741,8 @@ void LapH::distillery::copy_to_V(const std::complex<double>* const eigen_vec,
           size_t i = 3*( ((X*px + x)*Y*nproc_y + (Y*py + y))*Z*nproc_z  
                                                              +  Z*pz + z) + c;
           // byte swap to change endianess
-          (V[t])(j, nev) = swap_complex(eigen_vec[i]);
-          //(V[t])(j, nev) = eigen_vec[i];
+          //(V[t])(j, nev) = swap_complex(eigen_vec[i]);
+          (V[t])(j, nev) = eigen_vec[i];
           j++;
 
         }
@@ -755,99 +755,83 @@ void LapH::distillery::copy_to_V(const std::complex<double>* const eigen_vec,
 // -----------------------------------------------------------------------------
 void LapH::distillery::read_eigenvectors(){
 
-   MPI_Barrier(MPI_COMM_WORLD);
-   double time1 = MPI_Wtime();
-   double ttime;
+  MPI_Barrier(MPI_COMM_WORLD); 
+  double time1 = MPI_Wtime();
 
-   const size_t Ls = param.Ls;
-   const size_t Lt = param.Lt;
-   const size_t verbose = param.verbose;
-   const size_t number_of_eigen_vec = param.nb_ev;
+  const size_t Ls = param.Ls;
+  const size_t Lt = param.Lt;
+  const size_t verbose = param.verbose;
+  const size_t number_of_eigen_vec = param.nb_ev;
 
-   const size_t T = Lt/tmLQCD_params->nproc_t;
-   const size_t X = Ls/tmLQCD_params->nproc_x;
-   const size_t Y = Ls/tmLQCD_params->nproc_y;
-   const size_t Z = Ls/tmLQCD_params->nproc_z;
-   const size_t nproc_y = tmLQCD_params->nproc_y;
-   const size_t nproc_z = tmLQCD_params->nproc_z;
-   const size_t px = tmLQCD_params->proc_coords[1];
-   const size_t py = tmLQCD_params->proc_coords[2];
-   const size_t pz = tmLQCD_params->proc_coords[3];
+  const size_t T = Lt/tmLQCD_params->nproc_t;
+  const size_t dim_row = Ls * Ls * Ls * 3;
 
-   const size_t dim_row = Ls * Ls * Ls * 3;
+  int myid = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
-   MPI_Offset my_offset;
-   MPI_File fh;
-   MPI_Status status;
-   int file_open_error;
+  //buffer for read in
+  std::complex<double>* eigen_vec = new std::complex<double>[number_of_eigen_vec*dim_row];
 
-   int myid = 0;
-   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-
-   //buffer for read in
-   std::vector<std::complex<double> > eigen_vec(number_of_eigen_vec*dim_row);
-
-   if(myid == 0){
-     if(verbose) printf("reading eigen vectors from files:\n");
-     else printf("\treading eigenvectors\n");
-     fflush(stdout);
-   }
-
-   // running over all timeslices on this process
-   for(size_t t = 0; t < T; t++){
-
-     // setting up filename
-     const int real_t = T*tmLQCD_params->proc_coords[0] + t;
-     // create communicator for this timeslice
-     MPI_Comm ts_comm;
-     MPI_Comm_split( MPI_COMM_WORLD, 
-                     real_t /* process colour */,
-                     0, 
-                     &ts_comm );
-
-     char name[200];
-     snprintf(name, 200, "%s/eigenvectors.%04d.%03d",
-                   param.inpath_ev.c_str(), (int) param.config, real_t);
-     if(verbose) std::cout << "Reading file: " << name << std::endl;
-     // open file and check if it worked
-     ttime = MPI_Wtime();
-     file_open_error = MPI_File_open(ts_comm, name,
-                                            MPI_MODE_RDONLY, 
-				            MPI_INFO_NULL, &fh);
-     if (file_open_error != MPI_SUCCESS) {
-
-       char error_string[BUFSIZ];
-       int length_of_error_string, error_class;
-
-       MPI_Error_class(file_open_error, &error_class);
-       MPI_Error_string(error_class, error_string, &length_of_error_string);
-       printf("%3d: %s\n", myid, error_string);
-
-       MPI_Error_string(file_open_error, error_string, &length_of_error_string);
-       printf("%3d: %s\n", myid, error_string);
-
-       MPI_Abort(MPI_COMM_WORLD, file_open_error);
-     }
-     // reading and distributing data
-     size_t bytes = 2*sizeof(double)*number_of_eigen_vec*dim_row;
-     MPI_File_read_all(fh, &eigen_vec[0], bytes, MPI_BYTE, &status); // note: potential int overflow here due to MPI (bytes is implicitly cast to int)
-     MPI_Barrier(ts_comm);
-     MPI_File_close(&fh);
-     MPI_Barrier(MPI_COMM_WORLD);
-     if(myid==0) printf("read_eigenvectors: Time for reading %d MB timeslice EVs (t=%u): %.4e seconds\n",bytes/(1024*1024),t,MPI_Wtime()-ttime);
-     // free the timeslice communicator
-     MPI_Comm_free(&ts_comm);
-
-     
-     ttime=MPI_Wtime();
-     for (size_t nev = 0; nev < number_of_eigen_vec; ++nev) {
-       // copying the correct components into V
-       copy_to_V(&eigen_vec[nev*dim_row], t, nev);
-     }
-     if(myid==0) printf("read_eigenvectors: copy_to_V (t=%u): %.4e seconds\n",t,MPI_Wtime()-ttime);
+  if(myid == 0){
+    if(verbose) printf("reading eigen vectors from files:\n");
+    else printf("\treading eigenvectors\n");
+    fflush(stdout);
   }
 
-   MPI_Barrier(MPI_COMM_WORLD);
-   time1 = MPI_Wtime() - time1;
-   if(myid == 0) std::cout << "\tTime for eigenvector reading: " << time1 << std::endl;
+  // running over all timeslices on this process
+  for(size_t t = 0; t < T; t++){
+    
+    double ttime = MPI_Wtime();
+    const int real_t = T*tmLQCD_params->proc_coords[0] + t;
+ 
+    //setting up file
+    char name[200];
+    sprintf(name, "%s/eigenvectors.%04d.%03d", 
+                  param.inpath_ev.c_str(), (int) param.config, real_t);
+    if(verbose) std::cout << "Reading file: " << name << std::endl;
+    std::ifstream infile(name, std::ifstream::binary);
+    if (infile) {
+      infile.read( (char*) eigen_vec, 2*number_of_eigen_vec*dim_row*sizeof(double));
+      if(myid==0) printf("read_eigenvectors ifstream for (t,%u): %.4e seconds\n",t,MPI_Wtime()-ttime);
+      ttime = MPI_Wtime();
+      for (size_t nev = 0; nev < number_of_eigen_vec; ++nev) {
+        // copying the correct components into V
+        copy_to_V(&eigen_vec[nev*dim_row], t, nev);
+      }
+    }
+    else {
+      std::cout << "eigenvector file does not exist!!!\n" << std::endl;
+      exit(0);
+    }
+    infile.close();
+
+    // small test of trace and sum over the eigen vector matrix!
+    if(verbose){
+      std::cout << "trace of V^d*V on t = " << t << ":\t"
+          << (V[t].adjoint() * V[t]).trace() << std::endl;
+      std::cout << "sum over all entries of V^d*V on t = " << t << ":\t"
+          << (V[t].adjoint() * V[t]).sum() << std::endl;
+    }
+    if(myid==0) printf("read_eigenvectors copy_to_V (t,%u): %.4e seconds\n",t,MPI_Wtime()-ttime);
+  }
+  delete[] eigen_vec;
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  time1 = MPI_Wtime() - time1;
+  if(myid == 0)
+    std::cout << "\tTime for eigenvector reading: " << time1 << std::endl;
 }
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
