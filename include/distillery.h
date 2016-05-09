@@ -13,6 +13,7 @@
 #include "macros.h"
 #include "ranlxs.h"
 #include "input_parms.h"
+#include "typedefs.h"
 #include "tmLQCD.h"
 
 #include "mpi.h"
@@ -93,6 +94,7 @@ public:
 private:
   DISALLOW_COPY_AND_ASSIGN(distillery); // no copy nor assignment
   void read_eigenvectors();
+  size_t create_eigenvector_chunks(std::vector<ev_chunk>& ev_chunks);
   void set_random_vector(const size_t rnd_id);
   void set_sink_random_vector(const size_t rnd_id, const size_t sink_id, 
                               Eigen::VectorXcd& out);

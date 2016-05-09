@@ -770,6 +770,7 @@ void LapH::distillery::read_eigenvectors(){
    const size_t X = Ls/tmLQCD_params->nproc_x;
    const size_t Y = Ls/tmLQCD_params->nproc_y;
    const size_t Z = Ls/tmLQCD_params->nproc_z;
+   const size_t nproc_x = tmLQCD_params->nproc_x;
    const size_t nproc_y = tmLQCD_params->nproc_y;
    const size_t nproc_z = tmLQCD_params->nproc_z;
    const size_t px = tmLQCD_params->proc_coords[1];
@@ -780,8 +781,8 @@ void LapH::distillery::read_eigenvectors(){
 
    MPI_Offset my_offset;
    MPI_File fh;
-   MPI_Status status;
    int file_open_error;
+   MPI_Status* status = new MPI_Status[nproc_x*nproc_y*nproc_z];
 
    int myid = 0;
    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
@@ -799,15 +800,18 @@ void LapH::distillery::read_eigenvectors(){
      fflush(stdout);
    }
 
+   // variables for checking trace and sum of v^daggerv
+   std::complex<double> trace_s(.0,.0), trace_r(.0,.0), sum_r(.0,.0), sum_s(.0,.0);
    // running over all timeslices on this process
    for(size_t t = 0; t < T; t++){
+     MPI_Barrier(MPI_COMM_WORLD);
      // setting up filename
      const int real_t = T*tmLQCD_params->proc_coords[0] + t;
      // create communicator for this timeslice amongst all processes which also contain it
      MPI_Comm ts_comm;
      MPI_Comm_split( MPI_COMM_WORLD, 
                      real_t /* process colour */,
-                     0 /* ranking amongst processes of given colour, should be irrelevant */, 
+                     myid /* ranking amongst processes of given colour, should be irrelevant */, 
                      &ts_comm );
 
      char name[200];
@@ -815,6 +819,7 @@ void LapH::distillery::read_eigenvectors(){
                    param.inpath_ev.c_str(), (int) param.config, real_t);
      if(verbose) std::cout << "Reading file: " << name << std::endl;
      // open file and check if it worked
+     MPI_Barrier(ts_comm);
      file_open_error = MPI_File_open(ts_comm, name,
                            MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
      if (file_open_error != MPI_SUCCESS) {
@@ -832,34 +837,84 @@ void LapH::distillery::read_eigenvectors(){
      }
      
      // XLC has no support for range loops
-     for(size_t i = 0; i < ev_chunks.size(); ++i){
+     for(size_t i_chunk = 0; i_chunk < ev_chunks.size(); ++i_chunk){
        if(verbose){
-         std::cout << "read_eigenvectors: reading eigenvectors " << ev_chunks[i].offset 
-                   << " to " << ev_chunks[i].stride << " on timeslice " << real_t << std::endl;
+         std::cout << "read_eigenvectors: Process: " << myid << " reading eigenvectors " << ev_chunks[i_chunk].offset 
+                   << " to " << ev_chunks[i_chunk].offset+ev_chunks[i_chunk].stride-1 << " on timeslice " << real_t << std::endl;
        }
        MPI_Barrier(ts_comm);
        time2 = MPI_Wtime();
-       MPI_File_read_at_all(fh, ev_chunks[i].offset, &eigen_vec[0], ev_chunks[i].stride, MPI_DOUBLE, &status);
+
+       // the offset argument is generally of type size_t and does not overflow,
+       // the count argument however potentially overflows twice, once because it's an int
+       // and a second time when it gets converted into the number of bytes (also an int...)
+       for(int i_status = 0; i_status < nproc_x*nproc_y*nproc_z; ++i_status  ) status[i_status].MPI_ERROR = MPI_SUCCESS;
+       
+       MPI_File_read_at_all(fh, 2*dim_row*ev_chunks[i_chunk].offset, &eigen_vec[0], 2*dim_row*ev_chunks[i_chunk].stride, MPI_DOUBLE, status);
+       
+       bool do_abort = false;
+       for(int i_status = 0; i_status < nproc_x*nproc_y*nproc_z; ++i_status  ) {
+         if( status[i_status].MPI_ERROR != MPI_SUCCESS ){
+           std::cout << "read_eigenvectors: File read error " << status[i_status].MPI_ERROR <<  " on process " << myid << " status element " << i_status
+                     << " local timeslice: " << t << " global timeslice: " << real_t << std::endl;
+           do_abort = true;
+         }
+       }
+       // delay abort up to here to collect more errors
+       if(do_abort) MPI_Abort( MPI_COMM_WORLD, 234 );
+       
        MPI_Barrier(ts_comm);
-       if(verbose) std::cout << "read_eigenvectors: Time for reading " << 2*dim_row*ev_chunks[i].stride*sizeof(double)/(1024*1024)
-                             << " MB: " << MPI_Wtime()-time2 << " seconds" << std::endl;
+       if(verbose) std::cout << "read_eigenvectors: Time for reading " << 2*dim_row*ev_chunks[i_chunk].stride*sizeof(double)/(1024*1024)
+                             << " MB: " << MPI_Wtime()-time2 << " seconds. Process: " << myid << std::endl;
        
        time2=MPI_Wtime();
-       for (size_t nev = ev_chunks[i].offset; nev < (ev_chunks[i].offset+ev_chunks[i].stride); ++nev) {
+       for (size_t nev = ev_chunks[i_chunk].offset; nev < (ev_chunks[i_chunk].offset+ev_chunks[i_chunk].stride); ++nev) {
          // copying the correct components into V
-         copy_to_V(&eigen_vec[(nev-ev_chunks[i].offset)*dim_row], t, nev);
+         copy_to_V(&eigen_vec[(nev-ev_chunks[i_chunk].offset)*dim_row], t, nev);
        }
        MPI_Barrier(ts_comm);
-       if(verbose) std::cout << "read_eigenvectors: Time for copy_to_V of " << ev_chunks[i].stride << " eigenvectors: "
+       if(verbose) std::cout << "read_eigenvectors: Time for copy_to_V of " << ev_chunks[i_chunk].stride << " eigenvectors: "
                              << MPI_Wtime()-time2 << " seconds" << std::endl;
      }
-     MPI_File_close(&fh);
-     MPI_Comm_free(&ts_comm);
+     MPI_Barrier(ts_comm);
+     MPI_File_close(&fh); // this works fine on all processes
+     std::cout << "Closed filehandle: " << myid << std::endl;  
+     // computing trace and sum for check!
+     MPI_Barrier(ts_comm);
+     time2 = MPI_Wtime();
+     if(verbose) std::cout << "read_eigenvectors: computing local V^d V" << std::endl;
+     trace_s += (V[t].adjoint() * V[t]).trace();
+     sum_s += (V[t].adjoint() * V[t]).sum();
+     if(verbose) std::cout << "read_eigenvectors: time for v^dagger v: " << MPI_Wtime()-time2
+                           << " seconds on Process: " << myid << std::endl;
+     MPI_Barrier(ts_comm);    // it seems like this barrier is not reached by 70+-30 out of 512 processes...
+     MPI_Comm_free(&ts_comm); // and execution halts...
+     /* by removing the trace and sum, execution can be made to continue
+      * this seems to indicate that something about V[t] is not right
+      * which makes the computation very slow on some processes
+      * */
+     std::cout << "Freed ts_comm communicator: " << myid << std::endl;  
   }
-
-   MPI_Barrier(MPI_COMM_WORLD);
-   time1 = MPI_Wtime() - time1;
-   if(myid == 0) std::cout << "\tTotal time for eigenvector reading: " << time1 << std::endl;
+  // checking trace nd sum of v^dagger v
+  std::cout << "Communicating trace and sum " << myid << std::endl;
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Allreduce(&trace_s, &trace_r, 2, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(&sum_s, &sum_r, 2, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  if((fabs(trace_r.real() - Lt*number_of_eigen_vec) > 10e-6) ||
+     (fabs(sum_r.real()   - Lt*number_of_eigen_vec) > 10e-6) ||
+     (fabs(trace_r.imag()) > 10e-6) || (fabs(sum_r.imag()) > 10e-6) ){
+    if(myid == 0)
+      std::cout << "\n\nTrace of sum of V^daggerV is not correct! "
+                << "- abort program\n Sum = " << sum_r << " Trace = " 
+                << trace_r << "\n" << std::endl;
+    MPI_Finalize();
+    exit(212);
+  }
+  
+  MPI_Barrier(MPI_COMM_WORLD);
+  time1 = MPI_Wtime() - time1;
+  if(myid == 0) std::cout << "\tTotal time for eigenvector reading: " << time1 << std::endl;
+  free(status);
 }
 
 size_t LapH::distillery::create_eigenvector_chunks(std::vector<ev_chunk>& ev_chunks){
@@ -868,11 +923,15 @@ size_t LapH::distillery::create_eigenvector_chunks(std::vector<ev_chunk>& ev_chu
   const size_t number_of_eigen_vec = param.nb_ev;
 
   // number of times that MPI_File_read_all has to be called (at least) to avoid int overflow due to ridiculous MPI interface
-  size_t nchunks       = (int)ceil( ((double) 2*number_of_eigen_vec*dim_row )/INT_MAX );
+  // the int overflow happens internally when the "count" argument is converted from the MPI datatype to bytes
+  // one therefore has to take into account the number of bytes rather tha the number of doubles...
+  size_t nchunks       = (int)ceil( ((double) 2*number_of_eigen_vec*dim_row*sizeof(double) )/INT_MAX );
   size_t nev_in_chunk  = number_of_eigen_vec / nchunks;
 
   size_t nev_remaining = number_of_eigen_vec;
   size_t nev_processed = 0;
+  // if the integer division above had a remainder, the last chunk will process
+  // fewer eigenvectors, we thus construct a vector of tuples to represent this
   for(size_t i = 0; i < nchunks; ++i){
     size_t nev_this_chunk = nev_remaining > nev_in_chunk ? nev_in_chunk : nev_remaining;
     ev_chunk this_chunk = { nev_processed, nev_this_chunk };
@@ -884,5 +943,6 @@ size_t LapH::distillery::create_eigenvector_chunks(std::vector<ev_chunk>& ev_chu
     std::cout << "Problem with eigenvector reading logic. Aborting!" << std::cout;
     MPI_Abort(MPI_COMM_WORLD, 111);
   }
+  // we return the maximum buffer size required for reading these chunks (in units of complex double)
   return(nev_in_chunk*dim_row);
 }
