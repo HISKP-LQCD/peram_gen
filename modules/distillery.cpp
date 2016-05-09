@@ -1,3 +1,5 @@
+#include <climits>
+
 #include "./distillery.h"
 
 // -----------------------------------------------------------------------------
@@ -757,7 +759,7 @@ void LapH::distillery::read_eigenvectors(){
 
    MPI_Barrier(MPI_COMM_WORLD);
    double time1 = MPI_Wtime();
-   double ttime;
+   double time2;
 
    const size_t Ls = param.Ls;
    const size_t Lt = param.Lt;
@@ -784,8 +786,12 @@ void LapH::distillery::read_eigenvectors(){
    int myid = 0;
    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
+   // determine how many MPI reads it will take to read the eigenvectors
+   std::vector<ev_chunk> ev_chunks;
+   const size_t max_buflen = create_eigenvector_chunks(ev_chunks);
+
    //buffer for read in
-   std::vector<std::complex<double> > eigen_vec(number_of_eigen_vec*dim_row);
+   std::vector<std::complex<double> > eigen_vec(max_buflen);
 
    if(myid == 0){
      if(verbose) printf("reading eigen vectors from files:\n");
@@ -795,14 +801,13 @@ void LapH::distillery::read_eigenvectors(){
 
    // running over all timeslices on this process
    for(size_t t = 0; t < T; t++){
-
      // setting up filename
      const int real_t = T*tmLQCD_params->proc_coords[0] + t;
-     // create communicator for this timeslice
+     // create communicator for this timeslice amongst all processes which also contain it
      MPI_Comm ts_comm;
      MPI_Comm_split( MPI_COMM_WORLD, 
                      real_t /* process colour */,
-                     0, 
+                     0 /* ranking amongst processes of given colour, should be irrelevant */, 
                      &ts_comm );
 
      char name[200];
@@ -810,12 +815,9 @@ void LapH::distillery::read_eigenvectors(){
                    param.inpath_ev.c_str(), (int) param.config, real_t);
      if(verbose) std::cout << "Reading file: " << name << std::endl;
      // open file and check if it worked
-     ttime = MPI_Wtime();
      file_open_error = MPI_File_open(ts_comm, name,
-                                            MPI_MODE_RDONLY, 
-				            MPI_INFO_NULL, &fh);
+                           MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
      if (file_open_error != MPI_SUCCESS) {
-
        char error_string[BUFSIZ];
        int length_of_error_string, error_class;
 
@@ -828,26 +830,59 @@ void LapH::distillery::read_eigenvectors(){
 
        MPI_Abort(MPI_COMM_WORLD, file_open_error);
      }
-     // reading and distributing data
-     size_t bytes = 2*sizeof(double)*number_of_eigen_vec*dim_row;
-     MPI_File_read_all(fh, &eigen_vec[0], bytes, MPI_BYTE, &status); // note: potential int overflow here due to MPI (bytes is implicitly cast to int)
-     MPI_Barrier(ts_comm);
-     MPI_File_close(&fh);
-     MPI_Barrier(MPI_COMM_WORLD);
-     if(myid==0) printf("read_eigenvectors: Time for reading %d MB timeslice EVs (t=%u): %.4e seconds\n",bytes/(1024*1024),t,MPI_Wtime()-ttime);
-     // free the timeslice communicator
-     MPI_Comm_free(&ts_comm);
-
      
-     ttime=MPI_Wtime();
-     for (size_t nev = 0; nev < number_of_eigen_vec; ++nev) {
-       // copying the correct components into V
-       copy_to_V(&eigen_vec[nev*dim_row], t, nev);
+     // XLC has no support for range loops
+     for(size_t i = 0; i < ev_chunks.size(); ++i){
+       if(verbose){
+         std::cout << "read_eigenvectors: reading eigenvectors " << ev_chunks[i].offset 
+                   << " to " << ev_chunks[i].stride << " on timeslice " << real_t << std::endl;
+       }
+       MPI_Barrier(ts_comm);
+       time2 = MPI_Wtime();
+       MPI_File_read_at_all(fh, ev_chunks[i].offset, &eigen_vec[0], ev_chunks[i].stride, MPI_DOUBLE, &status);
+       MPI_Barrier(ts_comm);
+       if(verbose) std::cout << "read_eigenvectors: Time for reading " << 2*dim_row*ev_chunks[i].stride*sizeof(double)/(1024*1024)
+                             << " MB: " << MPI_Wtime()-time2 << " seconds" << std::endl;
+       
+       time2=MPI_Wtime();
+       for (size_t nev = ev_chunks[i].offset; nev < (ev_chunks[i].offset+ev_chunks[i].stride); ++nev) {
+         // copying the correct components into V
+         copy_to_V(&eigen_vec[(nev-ev_chunks[i].offset)*dim_row], t, nev);
+       }
+       MPI_Barrier(ts_comm);
+       if(verbose) std::cout << "read_eigenvectors: Time for copy_to_V of " << ev_chunks[i].stride << " eigenvectors: "
+                             << MPI_Wtime()-time2 << " seconds" << std::endl;
      }
-     if(myid==0) printf("read_eigenvectors: copy_to_V (t=%u): %.4e seconds\n",t,MPI_Wtime()-ttime);
+     MPI_File_close(&fh);
+     MPI_Comm_free(&ts_comm);
   }
 
    MPI_Barrier(MPI_COMM_WORLD);
    time1 = MPI_Wtime() - time1;
-   if(myid == 0) std::cout << "\tTime for eigenvector reading: " << time1 << std::endl;
+   if(myid == 0) std::cout << "\tTotal time for eigenvector reading: " << time1 << std::endl;
+}
+
+size_t LapH::distillery::create_eigenvector_chunks(std::vector<ev_chunk>& ev_chunks){
+  const size_t Ls = param.Ls;
+  const size_t dim_row = Ls*Ls*Ls*3;
+  const size_t number_of_eigen_vec = param.nb_ev;
+
+  // number of times that MPI_File_read_all has to be called (at least) to avoid int overflow due to ridiculous MPI interface
+  size_t nchunks       = (int)ceil( ((double) 2*number_of_eigen_vec*dim_row )/INT_MAX );
+  size_t nev_in_chunk  = number_of_eigen_vec / nchunks;
+
+  size_t nev_remaining = number_of_eigen_vec;
+  size_t nev_processed = 0;
+  for(size_t i = 0; i < nchunks; ++i){
+    size_t nev_this_chunk = nev_remaining > nev_in_chunk ? nev_in_chunk : nev_remaining;
+    ev_chunk this_chunk = { nev_processed, nev_this_chunk };
+    ev_chunks.push_back( this_chunk );
+    nev_processed += nev_this_chunk;
+    nev_remaining -= nev_this_chunk;
+  }
+  if( nev_remaining != 0 ){
+    std::cout << "Problem with eigenvector reading logic. Aborting!" << std::cout;
+    MPI_Abort(MPI_COMM_WORLD, 111);
+  }
+  return(nev_in_chunk*dim_row);
 }
