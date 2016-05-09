@@ -15,6 +15,9 @@
 #include "input_parms.h"
 #include "tmLQCD.h"
 
+#include "mpi.h"
+#include "omp.h"
+
 // from twisted mass code
 #ifdef __cplusplus                                                              
 extern "C"                                                                      
@@ -31,10 +34,7 @@ extern "C"
 }                                                                               
 #endif  
 
-
-#include "mpi.h"
-#include "omp.h"
-
+#undef complex
 
 namespace LapH {
 
