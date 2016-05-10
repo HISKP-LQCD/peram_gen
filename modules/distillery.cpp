@@ -845,11 +845,13 @@ void LapH::distillery::read_eigenvectors(){
        MPI_Barrier(ts_comm);
        time2 = MPI_Wtime();
 
+       // reset all statuses to not terminate in case MPI_File_read_all does not properly set the status struct
+       // (which seems to be the case...)
+       for(int i_status = 0; i_status < nproc_x*nproc_y*nproc_z; ++i_status  ) status[i_status].MPI_ERROR = MPI_SUCCESS;
+       
        // the offset argument is generally of type size_t and does not overflow,
        // the count argument however potentially overflows twice, once because it's an int
        // and a second time when it gets converted into the number of bytes (also an int...)
-       for(int i_status = 0; i_status < nproc_x*nproc_y*nproc_z; ++i_status  ) status[i_status].MPI_ERROR = MPI_SUCCESS;
-       
        MPI_File_read_at_all(fh, 2*dim_row*ev_chunks[i_chunk].offset, &eigen_vec[0], 2*dim_row*ev_chunks[i_chunk].stride, MPI_DOUBLE, status);
        
        bool do_abort = false;
