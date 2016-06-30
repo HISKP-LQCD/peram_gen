@@ -79,7 +79,14 @@ public:
   bool use_zgemm;                  // for add_to_perambulator:  (true) -> use zgemm for multiplication with Vdagger
                                    //                          (false) -> use eigen multiplication
 
-  size_t peram_gen_omp_num_threads;// number of OpenMP threads                                                                                                           
+  // when tmLQCD is compiled without QUDA support, invert_quda_direct is not going to be defined
+  // so we use the PG_QUDA_DIRECT preprocessor constant to enable and disable support for this
+#ifdef PG_QUDA_DIRECT
+  bool quda_direct;
+#endif
+
+  size_t peram_gen_omp_num_threads;// number of OpenMP threads used by peram_gen (1 or 2)
+  size_t eigen_omp_num_threads;    // number of OpenMP threads used by eigen 
 
   size_t nb_rnd;                   // random vector id of vector in process
   int* rnd_id;                     // id of random vectors

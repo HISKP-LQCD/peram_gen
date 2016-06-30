@@ -246,6 +246,13 @@ void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
   peram_gen_omp_num_threads = 1;
   reader += fscanf(infile, "omp_num_threads = %zu\n", &peram_gen_omp_num_threads);
 
+#ifdef PG_QUDA_DIRECT
+  quda_direct = false;
+  size_t temp;
+  reader += fscanf(infile, "quda_direct = %zu\n", &temp);
+  quda_direct = (bool) temp;
+#endif
+
   reader += fscanf(infile, "config = %zu \n", &config);
   reader += fscanf(infile, "total number of configs = %zu \n", &nb_config);
   reader += fscanf(infile, "distance between configs = %zu \n", &delta_config);

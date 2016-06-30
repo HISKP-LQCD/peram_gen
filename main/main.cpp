@@ -5,11 +5,9 @@
 
 #include "mpi.h"
 
-
 int main(int argc, char *argv[]){
 
   //MPI initialisation stuff
-  //MPI_Init(&argc, &argv);
   int mpi_thread_provided;
   MPI_Init_thread(&argc, &argv, MPI_THREAD_SERIALIZED, &mpi_thread_provided);
   int numprocs = 0, myid = 0;
@@ -86,14 +84,20 @@ int main(int argc, char *argv[]){
               // tmLQCD can also write the propagator, if requested
               unsigned int op_id = 0;
               unsigned int write_prop = 0;
-              // use standard inverter interface
-              //tmLQCD_invert((double *) propagator, (double *) sources[i], op_id, write_prop);
-
-              // use direct passthrough to QUDA, saving a lot of time when memory usage is high
-              // the last parameter indicates that we would like the gauge field to be kept resident
-              // in device memory between inversions, this breaks the processing of multiple configurations
-              // FIXME/TODO: support multiple configurations
-              invert_quda_direct((double*) propagators_t0[dil_d], (double*) sources[dil_d], op_id, 1);
+#ifndef PG_QUDA_DIRECT
+              {  // open a block for convenience 
+#else
+              if(param.quda_direct){
+                // use direct passthrough to QUDA, saving a lot of time when memory usage is high
+                // the last parameter indicates that we would like the gauge field to be kept resident
+                // in device memory between inversions, this breaks the processing of multiple configurations
+                // FIXME/TODO: support multiple configurations
+                invert_quda_direct((double*) propagators_t0[dil_d], (double*) sources[dil_d], op_id, 1);
+              } else {
+#endif
+                // use standard inverter interface
+                tmLQCD_invert((double *) propagators_t0[dil_d], (double *) sources[dil_d], op_id, write_prop);
+              } // close either the if statement or the block (see #ifndef PG_QUDA_DIRECT)
             }
           }
           
@@ -104,9 +108,6 @@ int main(int argc, char *argv[]){
             propagators_temp = propagators_t1;
             propagators_t1 = propagators_t0;
             propagators_t0 = propagators_temp;
-            // explicit copy
-            //for(size_t i = 0; i < nb_of_inversions; ++i)
-            //  memcpy( (void*)propagators_t1[i], (void*)propagators_t0[i], 2*sizeof(double)*length );
           }
           #pragma omp barrier
           

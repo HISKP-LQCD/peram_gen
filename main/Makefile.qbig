@@ -25,7 +25,7 @@ MODULES = $(GENERAL)
 
 
 # tmLQCD paths
-TMLQCD = /hadron/bartek/code/tmLQCD.etmc
+TMLQCD = /hadron/bartek/code/tmLQCD.kost
 TMLQCD_build = /hiskp2/bartek/build/tmLQCD/qudainterface.hybrid.lowmem.subprocess.quda-v0.7.2.openmpi
 TMLQCD_modules = ${TMLQCD_build}/quda_interface.o ${TMLQCD_build}/aligned_malloc.o \
                  ${TMLQCD_build}/matrix_utils.o ${TMLQCD_build}/source_generation.o \
@@ -59,7 +59,7 @@ LIBPATH = /usr/local/lib $(TMLQCD_build)/lib/  $(LIMEPATH)/lib/ /hadron/bartek/c
 
 
 # scheduling and optimization options
-CXXFLAGS = -Wall -pedantic -O3 -mtune=corei7-avx -march=corei7-avx -std=c++0x -fopenmp #-fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free
+CXXFLAGS = -DPG_QUDA_DIRECT -Wall -pedantic -O3 -mtune=corei7-avx -march=corei7-avx -std=c++0x -fopenmp #-fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free
 CFLAGS =   -Wall -pedantic -O3 -mtune=corei7-avx -march=corei7-avx -std=c99 -DHAVE_CONFIG_H -fopenmp #-fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free
 LDFLAGS =  
 #-Wl,-rpath -Wl,/hadron/bartek/code/jemalloc/lib/ # -Wl,-rpath -Wl,/hadron/bartek/local/libs/tcmalloc/lib/
