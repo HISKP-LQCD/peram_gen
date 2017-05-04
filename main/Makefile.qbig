@@ -41,7 +41,7 @@ LOGOPTION =
 LIMEPATH = /hadron/bartek/build/lime
 
 # additional include directories
-INCPATH = ../include /hiskp2/knippsch/contraction/libs/eigen $(TMLQCD)/ \
+INCPATH = ../include /hadron/bartek/code/bastian-eigen $(TMLQCD)/ \
           $(TMLQCD)/include $(TMLQCD_build)/ $(LIMEPATH)/include/
 
 
@@ -49,20 +49,15 @@ INCPATH = ../include /hiskp2/knippsch/contraction/libs/eigen $(TMLQCD)/ \
 # need to link against probably all libs in $(TMLQCD)/lib/
 LIBS = wrapper hmc monomial operator solver init linalg hmc xchange rational \
        io meas blas lapack blas m lime gfortran cuda cudart quda
-#jemalloc
-#tcmalloc_minimal
 
 LIBPATH = /usr/local/lib $(TMLQCD_build)/lib/  $(LIMEPATH)/lib/ /hadron/bartek/code/quda-v0.7.2.openmpi/lib \
           /usr/local/cuda-5.0/lib64   
-#/hadron/bartek/code/jemalloc/lib
-#/hadron/bartek/local/libs/tcmalloc/lib/
 
 
 # scheduling and optimization options
-CXXFLAGS = -DPG_QUDA_DIRECT -Wall -pedantic -O3 -mtune=corei7-avx -march=corei7-avx -std=c++0x -fopenmp #-fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free
-CFLAGS =   -Wall -pedantic -O3 -mtune=corei7-avx -march=corei7-avx -std=c99 -DHAVE_CONFIG_H -fopenmp #-fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free
-LDFLAGS =  
-#-Wl,-rpath -Wl,/hadron/bartek/code/jemalloc/lib/ # -Wl,-rpath -Wl,/hadron/bartek/local/libs/tcmalloc/lib/
+CXXFLAGS = -DPG_QUDA_DIRECT -Wall -pedantic -O3 -mtune=corei7-avx -march=corei7-avx -std=c++0x -fopenmp 
+CFLAGS =   -Wall -pedantic -O3 -mtune=corei7-avx -march=corei7-avx -std=c99 -DHAVE_CONFIG_H -fopenmp
+LDFLAGS = -fopenmp 
 
 ############################## do not change ###################################
 

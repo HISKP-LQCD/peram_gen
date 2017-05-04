@@ -208,6 +208,8 @@ void LapH::input_parameter::check_and_create_filenames(){
 
 }
 // -----------------------------------------------------------------------------
+// TODO: rework this parser completely and have some streamlined input
+// and output routines
 // -----------------------------------------------------------------------------
 void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
 
@@ -224,17 +226,19 @@ void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
       break;
     }
   }
-  //int myid = 0;
-  //MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-  //if(myid == 0){
-    if(opt < 0) {
+  int myid = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  if(opt < 0) {
+    if(myid==0){
       std::cout << "No input file specified, trying infile.in" << std::endl;
-      sprintf(infilename, "infile.in");
-    } else {
-      sprintf(infilename, "%s", argv[opt]);
+    }
+    sprintf(infilename, "infile.in");
+  } else {
+    if(myid==0){
       std::cout << "Trying input file " << infilename << std::endl;
     }
-  //}
+    sprintf(infilename, "%s", argv[opt]);
+  }
   // open file for reading
   if ((infile = fopen(infilename, "r")) == NULL ) {
     std::cerr << "Could not open file " << infilename << std::endl;
@@ -245,105 +249,165 @@ void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
   // configs
   peram_gen_omp_num_threads = 1;
   reader += fscanf(infile, "omp_num_threads = %zu\n", &peram_gen_omp_num_threads);
+  if(myid==0) std::cout << "omp_num_threads = " << peram_gen_omp_num_threads << std::endl;
 
 #ifdef PG_QUDA_DIRECT
-  quda_direct = false;
-  size_t temp;
-  reader += fscanf(infile, "quda_direct = %zu\n", &temp);
-  quda_direct = (bool) temp;
+  {
+    quda_direct = false;
+    size_t temp;
+    reader += fscanf(infile, "quda_direct = %zu\n", &temp);
+    if(myid==0) std::cout << "quda_direct = " << quda_direct << std::endl;
+    quda_direct = (bool) temp;
+  }
 #endif
 
   reader += fscanf(infile, "config = %zu \n", &config);
+  if(myid==0) std::cout << "config = " << config << std::endl;
+  
   reader += fscanf(infile, "total number of configs = %zu \n", &nb_config);
+  if(myid==0) std::cout << "total number of configs = " << nb_config << std::endl;
+  
   reader += fscanf(infile, "distance between configs = %zu \n", &delta_config);
-  // spatial extend
+  if(myid==0) std::cout << "distance betweeen configs = " << delta_config << std::endl;
+  
+  // spatial extent
   reader += fscanf(infile, "Ls = %zu \n", &Ls);
-  // temporal extend
+  if(myid==0) std::cout << "Ls = " << Ls << std::endl;
+  
+  // temporal extent
   reader += fscanf(infile, "Lt = %zu \n", &Lt);
+  if(myid==0) std::cout << "Lt = " << Lt << std::endl;
+  
   // number of eigenvectors
   reader += fscanf(infile, "nb_ev = %zu \n", &nb_ev);
+  if(myid==0) std::cout << "nb_ev = " << nb_ev << std::endl;
+  
   // starting number of randomvectors
-  // TODO: must be changed to allow for several random vectors
   reader += fscanf(infile, "nb_rnd = %zu \n", &nb_rnd);
+  if(myid==0) std::cout << "nb_rnd = " << nb_rnd << std::endl;
+  
   // seed and id for randomvectors
   rnd_id = new int[nb_rnd];
   seed = new int[nb_rnd];
-  for (size_t i = 0; i < nb_rnd; i++) 
+  for (size_t i = 0; i < nb_rnd; i++){ 
     reader += fscanf(infile, "id %i seed %i\n", rnd_id+i, seed+i);
-  // verbosity
+    if(myid==0) std::cout << "seed for rnd_vec " << i << " = " << seed[i] << std::endl;
+  }
+  
+  // verbosity of tmLQCD
   reader += fscanf(infile, "verbose = %zu\n", &( verbose));
+  if(myid==0) std::cout << "verbose = " << verbose << std::endl;
+ 
   // zgemm multiplication in add_to_perambulator
   {
     size_t temp;
     reader += fscanf(infile, "use_zgemm = %zu\n", &(temp));
     use_zgemm = (bool)temp;
+    if(myid==0) std::cout << "use_zgemm = " << use_zgemm << std::endl;
   }
 
   // quarktype
   reader += fscanf(infile, "quarktype = %255s\n", readin);
+  if(myid==0) std::cout << "quarktype = " << readin << std::endl;
   quarktype.assign(readin);
 
   // SOURCE --------------------------------------------------------------------
   // type and number of inversions for the source in time ----------------------
   reader += fscanf(infile, "inversion_source_type_t = %255s\n", readin);
+  if(myid==0) std::cout << "inversion_source_type_t = " << readin << std::endl;
   dilution_type_so[0].assign(readin);
+  
   reader += fscanf(infile, "inversion_source_number_t = %zu\n", 
                    &(dilution_size_so[0]));
+  if(myid==0) std::cout << "inversion_source_number_t = " << dilution_size_so[0] << std::endl;
+  
   // type and number of inversions for the source in eigenvector space ---------
   reader += fscanf(infile, "inversion_source_type_v = %255s\n", readin);
+  if(myid==0) std::cout << "inversion_source_type_v = " << readin << std::endl;
   dilution_type_so[1].assign(readin);
+  
   reader += fscanf(infile, "inversion_source_number_v = %zu\n", 
                    &(dilution_size_so[1]));
+  if(myid==0) std::cout << "inversion_source_number_v = " << dilution_size_so[1] << std::endl;
   // type and number of inversions for the soure in Dirac space ----------------
+  
   reader += fscanf(infile, "inversion_source_type_d = %255s\n", readin);
+  if(myid==0) std::cout << "inversion_source_type_d = " << readin << std::endl;
   dilution_type_so[2].assign(readin);
+  
   reader += fscanf(infile, "inversion_source_number_d = %zu\n", 
                    &(dilution_size_so[2]));
+  if(myid==0) std::cout << "inversion_source_number_d = " << dilution_size_so[2] << std::endl;
 
   // SINK ----------------------------------------------------------------------
   reader += fscanf(infile, "nb_of_sinks = %zu\n", &nb_of_sinks);
+  if(myid==0) std::cout << "nb_of_sinks = " << nb_of_sinks << std::endl;
+
   dilution_size_si.resize(nb_of_sinks);
   dilution_type_si.resize(nb_of_sinks);
   seed_si.resize(nb_of_sinks);
   nb_of_sink_rnd_vec.resize(nb_of_sinks);
+ 
+  // BaKo: surely this is still not working correctly...
   for(size_t nbs = 0; nbs < nb_of_sinks; nbs++){
     dilution_size_si[nbs].resize(4);
     dilution_type_si[nbs].resize(4);
     reader += fscanf(infile, "nb_of_sink_rnd_vec = %zu\n", 
                                                     &(nb_of_sink_rnd_vec[nbs]));
     seed_si[nbs].resize(nb_of_sink_rnd_vec[nbs]);
-    // seed for sink reandom vector
-    for(size_t nb_rnd = 0; nb_rnd < nb_of_sink_rnd_vec[nbs]; nb_rnd++)
+    if(myid==0) std::cout << "nb_of_sink_rnd_vec = " << nb_of_sink_rnd_vec[nbs] << std::endl;
+
+
+    // seed for sink random vector
+    for(size_t nb_rnd = 0; nb_rnd < nb_of_sink_rnd_vec[nbs]; nb_rnd++){
       reader += fscanf(infile, "seed = %i\n", &(seed_si[nbs][nb_rnd]));
+      if(myid==0) std::cout << "seed = " << seed_si[nbs][nb_rnd] << std::endl;
+    }
+
     // type and number of dilution vectors for the sink in time ----------------
     reader += fscanf(infile, "inversion_sink_type_t = %255s\n", readin);
     dilution_type_si[nbs][0].assign(readin);
+    if(myid==0) std::cout << "inversion_sink_type_t = " << readin << std::endl;
     reader += fscanf(infile, "inversion_sink_number_t = %zu\n", 
                      &(dilution_size_si[nbs][0]));
+    if(myid==0) std::cout << "inversion_sink_number_t = " << dilution_size_si[nbs][0] << std::endl;
+    
+
     // type and number of dilution vectors for the sink in space ---------------
     reader += fscanf(infile, "inversion_sink_type_s = %255s\n", readin);
     dilution_type_si[nbs][1].assign(readin);
+    if(myid==0) std::cout << "inversion_sink_type_s = " << readin << std::endl;
     reader += fscanf(infile, "inversion_sink_number_s = %zu\n", 
                      &(dilution_size_si[nbs][1]));
+    if(myid==0) std::cout << "inversion_sink_number_s = " << dilution_size_si[nbs][1] << std::endl;
+    
     // type and number of dilution vectors for the sink in Dirac space ---------
     reader += fscanf(infile, "inversion_sink_type_d = %255s\n", readin);
     dilution_type_si[nbs][2].assign(readin);
+    if(myid==0) std::cout << "inversion_sink_type_d = " << readin << std::endl;
     reader += fscanf(infile, "inversion_sink_number_d = %zu\n", 
                      &(dilution_size_si[nbs][2]));
+    if(myid==0) std::cout << "inversion_sink_number_d = " << dilution_size_si[nbs][2] << std::endl;
+    
     // type and number of dilution vectors for the sink in colour space --------
     reader += fscanf(infile, "inversion_sink_type_c = %255s\n", readin);
     dilution_type_si[nbs][3].assign(readin);
+    if(myid==0) std::cout << "inversion_sink_type_c = " << readin << std::endl;
     reader += fscanf(infile, "inversion_sink_number_c = %zu\n", 
                      &(dilution_size_si[nbs][3]));
+    if(myid==0) std::cout << "inversion_sink_number_c = " << dilution_size_si[nbs][3] << std::endl;
   }
 
   // output path for the perambulators and the randomvectors
   reader += fscanf(infile, "outpath = %255s\n", readin);
   outpath.assign(readin);
+  if(myid==0) std::cout << "outpath = " << readin << std::endl;
+
   // input path for the eigensystems
   reader += fscanf(infile, "inpath_ev = %255s\n", readin);
   inpath_ev.assign(readin);
-
+  if(myid==0) std::cout << "inpath_ev = " << readin << std::endl;
+ 
   // close input file
   fclose(infile);
   
