@@ -243,10 +243,10 @@ void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
     }
     sprintf(infilename, "infile.in");
   } else {
+    sprintf(infilename, "%s", argv[opt]);
     if(myid==0){
       std::cout << "Trying input file " << infilename << std::endl;
     }
-    sprintf(infilename, "%s", argv[opt]);
   }
   // open file for reading
   if ((infile = fopen(infilename, "r")) == NULL ) {
