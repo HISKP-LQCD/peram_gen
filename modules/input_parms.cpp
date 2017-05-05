@@ -303,10 +303,9 @@ void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
     if(myid==0) std::cout << "seed for rnd_vec " << i << " = " << seed[i] << std::endl;
   }
   
-  // verbosity of tmLQCD
   reader += fscanf(infile, "verbose = %zu\n", &( verbose));
   if(myid==0) std::cout << "verbose = " << verbose << std::endl;
-   // endianess
+  
   reader += fscanf(infile, "endianness = %255s\n", readin);
   endianness.assign(readin);
   if(myid==0) std::cout << "endianness = " << readin << std::endl;
