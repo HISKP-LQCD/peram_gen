@@ -87,6 +87,7 @@ public:
 
   size_t peram_gen_omp_num_threads;// number of OpenMP threads used by peram_gen (1 or 2)
   size_t eigen_omp_num_threads;    // number of OpenMP threads used by eigen 
+  std::string endianness;          // needed for endianess change 
 
   size_t nb_rnd;                   // random vector id of vector in process
   int* rnd_id;                     // id of random vectors
