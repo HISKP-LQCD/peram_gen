@@ -32,6 +32,7 @@ LapH::input_parameter::input_parameter(const input_parameter& other){
   Lt = other.Lt;
   nb_ev = other.nb_ev;
   verbose = other.verbose;
+  endianness = other.endianness;
 
   nb_rnd = other.nb_rnd;
   if (rnd_id != NULL)
@@ -85,6 +86,7 @@ LapH::input_parameter& LapH::input_parameter::operator=
     Lt = other.Lt;
     nb_ev = other.nb_ev;
     verbose = other.verbose;
+    endianness = other.endianness;
     
     nb_rnd = other.nb_rnd;
     if (rnd_id != NULL)
@@ -188,6 +190,13 @@ void LapH::input_parameter::check_input_parameters(){
        MPI_Finalize();
        std::exit(0);
   }
+  if(endianness != "little" && endianness != "big"){
+    std::cerr << "\n\nEndianness in infile must be 'little' or 'big'!\n" 
+              << "Aborting...\n" << std::endl;
+       MPI_Finalize();
+       std::exit(0);
+  }
+     
   check_dilution_input(dilution_type_so[0], Lt, dilution_size_so[0]); 
   check_dilution_input(dilution_type_so[1], nb_ev, dilution_size_so[1]); 
   check_dilution_input(dilution_type_so[2], 4, dilution_size_so[2]);
@@ -297,7 +306,12 @@ void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
   // verbosity of tmLQCD
   reader += fscanf(infile, "verbose = %zu\n", &( verbose));
   if(myid==0) std::cout << "verbose = " << verbose << std::endl;
- 
+   // endianess
+  reader += fscanf(infile, "endianness = %255s\n", readin);
+  endianness.assign(readin);
+  if(myid==0) std::cout << "endianness = " << readin << std::endl;
+
+
   // zgemm multiplication in add_to_perambulator
   {
     size_t temp;
@@ -423,9 +437,11 @@ void LapH::input_parameter::print_options() {
   std::cout << "config = " <<  config << std::endl;
   std::cout << "Ls = " <<  Ls << ", Lt = " <<  Lt << std::endl;
   std::cout << "nb_ev = " <<  nb_ev << ", nb_rnd = " <<  nb_rnd << std::endl;
-  std::cout << "seed = " <<  seed << std::endl;
+  for(size_t i = 0; i < nb_rnd; i++)
+    std::cout << "rnd_id = " << rnd_id[i] << " seed = " <<  seed[i] << std::endl;
   std::cout << "verbose = " <<  verbose << std::endl;
   std::cout << "use_zgemm = " << use_zgemm << std::endl;
+  std::cout << "endianness = " << endianness << std::endl;
   std::cout << "quarktype = " <<  quarktype << std::endl;
   std::cout << "inversion source time: " <<  dilution_type_so[0] << " " 
             <<  dilution_size_so[0] << std::endl;
@@ -446,7 +462,7 @@ void LapH::input_parameter::print_options() {
               <<  dilution_size_si[nbs][3] << "\n" << std::endl;
   }
   std::cout << "output path: " <<  outpath << std::endl;
-  std::cout << "input path ev: " <<  inpath_ev << std::endl;
+  std::cout << "input path ev: " <<  inpath_ev << "\n\n" <<  std::endl;
 
 }
 // -----------------------------------------------------------------------------
