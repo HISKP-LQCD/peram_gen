@@ -954,10 +954,12 @@ void LapH::distillery::set_random_vector(const size_t rnd_id) {
 
   double sqrt2 = 0.5*sqrt(2.0);
   double re, im;
-  rlxs_init(0, (param.seed[rnd_id])^param.config);
+  rlxd_init(2, (param.seed[rnd_id])^param.config);
   int rnd_length = 2*param.Lt*param.nb_ev*4;
-  float* rnd = new float[rnd_length];
-  ranlxs(rnd, rnd_length);
+  double* rnd = new double[rnd_length];
+  ranlxd(rnd, rnd_length);
+
+  printf("Using ranluxd at level 2\n");
 
   // generating a Z_2 source
   for(size_t t = 0; t < param.Lt; ++t ){ 

@@ -20,7 +20,7 @@ all: rmxeq mkdep mkxeq
 
 MAIN = main
 
-GENERAL = distillery ranlxs input_parms
+GENERAL = distillery ranlxd ranlxs input_parms
 MODULES = $(GENERAL)
 
 
