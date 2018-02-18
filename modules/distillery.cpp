@@ -964,7 +964,7 @@ void LapH::distillery::write_perambulator_to_disk(const size_t rnd_id) {
       MPI_Bcast(&kill_program, 1, MPI_INT, 0, MPI_COMM_WORLD);
       if(kill_program){ // kill program in case of write failure of perambulator
         MPI_Finalize();
-        exit(0);
+        exit(122);
       }
     } // for loop over random vectors ends here
   } // for loop over sinks ends here

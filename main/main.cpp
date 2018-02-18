@@ -38,7 +38,7 @@ int main(int argc, char *argv[]){
       std::cout 
         << "This version of peram_gen is a complete and utter hack and can only " << std::endl
         << "do one random vector at a time. This is the result of a number of " << std::endl
-        << "memory conserving modifications. If you're not on dense GPU nodes " << std:endl
+        << "memory conserving modifications. If you're not on dense GPU nodes " << std::endl
         << "with far too little memory, you're better off using the master or zgemm " << std::endl
         << "branches. peram_gen will terminate now" << std::endl;
       fflush(stdout);
