@@ -1,5 +1,6 @@
 #include "./distillery.h"
 
+#include <climits>
 
 // -----------------------------------------------------------------------------
 // swapping endianess ----------------------------------------------------------
@@ -97,6 +98,17 @@ void LapH::distillery::initialise(const LapH::input_parameter& in_param) {
 }
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+void LapH::distillery::hack_clean() {
+  const size_t T = param.Lt/tmLQCD_params->nproc_t;
+  for(size_t t = 0; t < T; ++t){
+    (V[t]).resize(0, 0);
+    (random_vector[t]).resize(0);
+  }
+  for(size_t t = 0; t < param.Lt; ++t){
+    (random_vector[t]).resize(0);
+  }
+}
+
 void LapH::distillery::clean() {
 
   const size_t T = param.Lt/tmLQCD_params->nproc_t;
@@ -862,6 +874,13 @@ void LapH::distillery::write_perambulator_to_disk(const size_t rnd_id) {
 
     // memory for reading perambulators and setting it to zero
     for(size_t nbr = 0; nbr < param.nb_of_sink_rnd_vec[nbs]; nbr++){
+      printf("id=%d about to allocate %lu elements of complex double (%lf GiB)\n", 
+             myid, 
+             size_perambulator_entry,
+             2*8*static_cast<double>(size_perambulator_entry)/1024/1024/1024
+             );
+      fflush(stdout);
+
       std::vector<std::complex<double> > perambulator_write(
                        size_perambulator_entry, std::complex<double>(0.0, 0.0));
   
@@ -878,6 +897,13 @@ void LapH::distillery::write_perambulator_to_disk(const size_t rnd_id) {
         }
       }
       // Summing all the perambulator data on process 0
+      printf("id=%d about to do MPI reduction on %lu elements of data, INT_MAX=%d, ratio=%lf\n", 
+             myid, 
+             2*size_perambulator_entry,
+             INT_MAX,
+             static_cast<double>(2*size_perambulator_entry)/INT_MAX);
+      fflush(stdout);
+
       if(myid == 0)
         MPI_Reduce(MPI_IN_PLACE, &(perambulator_write[0]), 
              2*size_perambulator_entry, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -938,7 +964,7 @@ void LapH::distillery::write_perambulator_to_disk(const size_t rnd_id) {
       MPI_Bcast(&kill_program, 1, MPI_INT, 0, MPI_COMM_WORLD);
       if(kill_program){ // kill program in case of write failure of perambulator
         MPI_Finalize();
-        exit(0);
+        exit(122);
       }
     } // for loop over random vectors ends here
   } // for loop over sinks ends here
@@ -954,10 +980,12 @@ void LapH::distillery::set_random_vector(const size_t rnd_id) {
 
   double sqrt2 = 0.5*sqrt(2.0);
   double re, im;
-  rlxs_init(0, (param.seed[rnd_id])^param.config);
+  rlxd_init(2, (param.seed[rnd_id])^param.config);
   int rnd_length = 2*param.Lt*param.nb_ev*4;
-  float* rnd = new float[rnd_length];
-  ranlxs(rnd, rnd_length);
+  double* rnd = new double[rnd_length];
+  ranlxd(rnd, rnd_length);
+
+  printf("Using ranluxd at level 2\n");
 
   // generating a Z_2 source
   for(size_t t = 0; t < param.Lt; ++t ){ 

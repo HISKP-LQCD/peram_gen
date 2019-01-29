@@ -69,6 +69,9 @@ public:
   void initialise(const input_parameter& in_param);
   // cleaning everything up and freeing all memory
   void clean();
+
+  // hack to clear out as much memory as possible before perambulator is written
+  void hack_clean();
   // setting everything to zero again, and reding new eigenvectors
   // only difference to initialise is that no new memory is allocated
   // input: in_param -> all necessary input parameters (see struct definition)

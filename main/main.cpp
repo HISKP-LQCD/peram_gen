@@ -5,6 +5,10 @@
 
 #include "mpi.h"
 
+#include "unistd.h"
+
+#include <cstdlib>
+
 int main(int argc, char *argv[]){
 
   //MPI initialisation stuff
@@ -29,8 +33,25 @@ int main(int argc, char *argv[]){
   // initialisation of distillery
   LapH::input_parameter param;
   param.parse_input_file(argc, argv);
-  if(myid == 0)
+  if( param.nb_rnd > 1 ){
+    if( myid == 0 ){
+      std::cout 
+        << "This version of peram_gen is a complete and utter hack and can only " << std::endl
+        << "do one random vector at a time. This is the result of a number of " << std::endl
+        << "memory conserving modifications. If you're not on dense GPU nodes " << std::endl
+        << "with far too little memory, you're better off using the master or zgemm " << std::endl
+        << "branches. peram_gen will terminate now" << std::endl;
+      fflush(stdout);
+    }
+    tmLQCD_finalise();
+    MPI_Finalize();
+    exit(123);
+  }
+
+  
+  if(myid == 0) {
     std::cout << "processing config: " << param.config << "\n" << std::endl;
+  }
   MPI_Barrier(MPI_COMM_WORLD);
 
   tmLQCD_read_gauge(param.config);
@@ -42,24 +63,24 @@ int main(int argc, char *argv[]){
 
   // preparing source creation -------------------------------------------------
   size_t nb_of_inversions =  param.dilution_size_so[2];
+    std::complex<double>** sources = new std::complex<double>*[nb_of_inversions];
+    std::complex<double>** propagators_t0 = new std::complex<double>*[nb_of_inversions];
+    std::complex<double>** propagators_t1 = new std::complex<double>*[nb_of_inversions];
 
   int length = 3*4*param.Lt*param.Ls*param.Ls*param.Ls/numprocs;
-  std::complex<double>** sources = new std::complex<double>*[nb_of_inversions];
-  for(size_t i = 0; i < nb_of_inversions; ++i)
-        sources[i] = new std::complex<double>[length];
-  
-  std::complex<double>** propagators_t0 = new std::complex<double>*[nb_of_inversions];
-  for(size_t i = 0; i < nb_of_inversions; ++i)
-        propagators_t0[i] = new std::complex<double>[length];
-  
-  std::complex<double>** propagators_t1 = new std::complex<double>*[nb_of_inversions];
-  for(size_t i = 0; i < nb_of_inversions; ++i)
-        propagators_t1[i] = new std::complex<double>[length];
-
-  std::complex<double>** propagators_temp;
 
   // loop over random vectors
   for(size_t rnd_id = 0; rnd_id < param.nb_rnd; ++rnd_id) {
+    // take some memory allocation overhead to reduce overall memory usage
+    // these will be deleted before the perambulator is written (which
+    // requires significant temporary storage)
+    for(size_t i = 0; i < nb_of_inversions; ++i){
+      sources[i] = new std::complex<double>[length];
+      propagators_t1[i] = new std::complex<double>[length];
+      propagators_t0[i] = new std::complex<double>[length];
+    }
+
+    std::complex<double>** propagators_temp;
     omp_set_num_threads(param.peram_gen_omp_num_threads);
     #pragma omp parallel
     {
@@ -120,17 +141,34 @@ int main(int argc, char *argv[]){
       } // end of loop over inversions
     } // OpenMP parallel section closing brace
 
+    // ----------- this is a total hack to use less memory
+    for(size_t i = 0; i < nb_of_inversions; ++i){
+      delete[] sources[i];
+      delete[] propagators_t1[i];
+      delete[] propagators_t0[i];
+    }
+    printf("HACK finalize tmLQCD\n");
+    fflush(stdout);
+    tmLQCD_finalise();
+    sleep(5);
+    MPI_Barrier(MPI_COMM_WORLD);
+    printf("HACK clean distillery\n");
+    fflush(stdout);
+    dis.hack_clean();
+    sleep(5);
+    // ------------ this is a total hack to use less memory
+
     // constructing the perambulator
     MPI_Barrier(MPI_COMM_WORLD);
     // creating new random vector and writing perambulator to disk -------------------
     dis.write_perambulator_to_disk(rnd_id); // ---------------------------------------
     MPI_Barrier(MPI_COMM_WORLD);
-    if(rnd_id < param.nb_rnd - 1)
-      dis.reset_perambulator_and_randomvector(rnd_id+1);
-    MPI_Barrier(MPI_COMM_WORLD);
+    // memory reduction hack implies that this doesn't work anymore
+    //if(rnd_id < param.nb_rnd - 1)
+    //  dis.reset_perambulator_and_randomvector(rnd_id+1);
+    //MPI_Barrier(MPI_COMM_WORLD);
   } // end of loop over random vectors
 
-  tmLQCD_finalise();
   dis.clean();
 
   MPI_Finalize();

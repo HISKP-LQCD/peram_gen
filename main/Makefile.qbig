@@ -20,13 +20,13 @@ all: rmxeq mkdep mkxeq
 
 MAIN = main
 
-GENERAL = distillery ranlxs input_parms
+GENERAL = distillery ranlxd ranlxs input_parms
 MODULES = $(GENERAL)
 
 
 # tmLQCD paths
-TMLQCD = /hadron/bartek/code/tmLQCD.kost
-TMLQCD_build = /hiskp2/bartek/build/tmLQCD/qudainterface.hybrid.lowmem.subprocess.quda-v0.7.2.openmpi
+TMLQCD = /qbigwork2/bartek/code/tmLQCD.quda_mg
+TMLQCD_build = /qbigwork2/bartek/build/kepler/tmLQCD.quda.mg
 TMLQCD_modules = ${TMLQCD_build}/quda_interface.o ${TMLQCD_build}/aligned_malloc.o \
                  ${TMLQCD_build}/matrix_utils.o ${TMLQCD_build}/source_generation.o \
                  ${TMLQCD_build}/gettime.o
@@ -38,7 +38,7 @@ VPATH = .:$(MDIR)
 # Logging option (-mpilog or -mpitrace or -mpianim)
 LOGOPTION =
 
-LIMEPATH = /hadron/bartek/build/lime
+LIMEPATH = /qbigwork2/bartek/libs/lime
 
 # additional include directories
 INCPATH = ../include /hadron/bartek/code/bastian-eigen $(TMLQCD)/ \
@@ -48,23 +48,24 @@ INCPATH = ../include /hadron/bartek/code/bastian-eigen $(TMLQCD)/ \
 # additional libraries
 # need to link against probably all libs in $(TMLQCD)/lib/
 LIBS = wrapper hmc monomial operator solver init linalg hmc xchange rational \
-       io meas blas lapack blas m lime gfortran cuda cudart quda
+       io meas blas lapack blas m lime gfortran cuda cudart cublas quda
 
-LIBPATH = /usr/local/lib $(TMLQCD_build)/lib/  $(LIMEPATH)/lib/ /hadron/bartek/code/quda-v0.7.2.openmpi/lib \
-          /usr/local/cuda-5.0/lib64   
+LIBPATH = /usr/local/lib $(TMLQCD_build)/lib/  $(LIMEPATH)/lib/ \
+          /qbigwork2/bartek/libs/kepler/quda.mg/lib \
+          /opt/cuda-8.0/lib64  
 
 
 # scheduling and optimization options
-CXXFLAGS = -DPG_QUDA_DIRECT -Wall -pedantic -O3 -mtune=corei7-avx -march=corei7-avx -std=c++0x -fopenmp 
-CFLAGS =   -Wall -pedantic -O3 -mtune=corei7-avx -march=corei7-avx -std=c99 -DHAVE_CONFIG_H -fopenmp
+CXXFLAGS = -DPG_QUDA_DIRECT -Wall -pedantic -O3 -mtune=sandybridge -march=sandybridge -std=c++11 -fopenmp 
+CFLAGS =   -Wall -pedantic -O3 -mtune=sandybridge -march=sandybridge -std=c99 -DHAVE_CONFIG_H -fopenmp
 LDFLAGS = -fopenmp 
 
 ############################## do not change ###################################
 
 SHELL=/bin/bash
-CXX=mpicxx.openmpi
-CLINKER=mpicxx.openmpi
-CC=mpicc.openmpi
+CXX=mpicxx
+CLINKER=mpicxx
+CC=mpicc
 
 CMODULES = #start ranlxd
 
