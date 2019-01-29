@@ -92,7 +92,7 @@ int main(int argc, char *argv[]){
                 // the last parameter indicates that we would like the gauge field to be kept resident
                 // in device memory between inversions, this breaks the processing of multiple configurations
                 // FIXME/TODO: support multiple configurations
-                invert_quda_direct((double*) propagators_t0[dil_d], (double*) sources[dil_d], op_id, 1);
+                invert_quda_direct((double*) propagators_t0[dil_d], (double*) sources[dil_d], op_id);
               } else {
 #endif
                 // use standard inverter interface
