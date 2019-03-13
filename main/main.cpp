@@ -30,8 +30,15 @@ int main(int argc, char *argv[]){
     std::cout << "processing config: " << param.config << "\n" << std::endl;
   MPI_Barrier(MPI_COMM_WORLD);
 
-  tmLQCD_read_gauge(param.config);
+  int gauge_read = tmLQCD_read_gauge(param.config);
   MPI_Barrier(MPI_COMM_WORLD);
+  
+  if( gauge_read < 0 ){
+    tmLQCD_finalise();
+    printf("There was an error in tmLQCD_read_gauge!\n");
+    MPI_Finalise();
+    exit(222);
+  }
 
   LapH::distillery dis;
   dis.initialise(param);
