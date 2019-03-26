@@ -116,10 +116,8 @@ int main(int argc, char *argv[]){
               {  // open a block for convenience 
 #else
               if(param.quda_direct){
-                // use direct passthrough to QUDA, saving a lot of time when memory usage is high
-                // the last parameter indicates that we would like the gauge field to be kept resident
-                // in device memory between inversions, this breaks the processing of multiple configurations
-                // FIXME/TODO: support multiple configurations
+                // use direct passthrough to QUDA, saving a lot of time by not having to
+                // reshuffle fields
                 invert_quda_direct((double*) propagators_t0[dil_d], (double*) sources[dil_d], op_id);
               } else {
 #endif
