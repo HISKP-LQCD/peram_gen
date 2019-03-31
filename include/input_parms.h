@@ -85,21 +85,22 @@ public:
   bool quda_direct;
 #endif
 
-  size_t peram_gen_omp_num_threads;// number of OpenMP threads used by peram_gen (1 or 2)
-  size_t eigen_omp_num_threads;    // number of OpenMP threads used by eigen 
-  std::string endianness;          // needed for endianess change 
+  unsigned int peram_gen_omp_num_threads; // number of OpenMP threads used by peram_gen (1 or 2)
+  unsigned int eigen_omp_num_threads;     // number of OpenMP threads used by eigen
+  unsigned int evec_read_omp_num_threads; // number of OpenMP threads used for reading eigenvectors 
+  std::string endianness;           // needed for endianess change 
 
-  size_t nb_rnd;                   // random vector id of vector in process
-  int* rnd_id;                     // id of random vectors
-  int* seed;                       // seeds for random vector generation
+  size_t nb_rnd;                    // random vector id of vector in process
+  int* rnd_id;                      // id of random vectors
+  int* seed;                        // seeds for random vector generation
   std::vector<std::vector<int> >
-                          seed_si; // seeds for sink random vector generation
+                          seed_si;  // seeds for sink random vector generation
 
-  std::string quarktype;           // quark type: u,d,s,c -> for naming outfiles
-  std::string outpath;             // path to write everything
-  std::string inpath_ev;           // path to read eigenvectors
-  std::string peram_file_name;     // perambulator file name
-  std::string rnd_vec_file_name;   // random vektor file name
+  std::string quarktype;            // quark type: u,d,s,c -> for naming outfiles
+  std::string outpath;              // path to write everything
+  std::string inpath_ev;            // path to read eigenvectors
+  std::string peram_file_name;      // perambulator file name
+  std::string rnd_vec_file_name;    // random vektor file name
   // ------------------------- END DATA ---------------------------------------
 
 };

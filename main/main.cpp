@@ -60,7 +60,7 @@ int main(int argc, char *argv[]){
   if( gauge_read < 0 ){
     tmLQCD_finalise();
     printf("There was an error in tmLQCD_read_gauge!\n");
-    MPI_Finalise();
+    MPI_Finalize();
     exit(222);
   }
 

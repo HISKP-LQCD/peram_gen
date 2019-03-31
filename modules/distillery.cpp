@@ -1212,19 +1212,36 @@ void LapH::distillery::read_eigenvectors(){
   int myid = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
-  //buffer for read in
-  std::complex<double>* eigen_vec = new std::complex<double>[dim_row];
+  //buffer for read in, one for each thread
+  if(myid == 0){
+    std::cout << "Allocating read buffer for eigenvectors" << std::endl;
+    std::cout << "evec_read_omp_num_threads: " << param.evec_read_omp_num_threads << std::endl;
+  }
+
+
+  std::vector< std::vector< std::complex<double> > > eigen_vec( param.evec_read_omp_num_threads );
+  for( unsigned int i_th = 0; i_th < param.evec_read_omp_num_threads; ++i_th ){
+    eigen_vec[i_th].resize(dim_row);
+  }
 
   if(myid == 0){
     if(verbose) printf("reading eigen vectors from files:\n");
     else printf("\treading eigenvectors\n");
     fflush(stdout);
   }
+  
   // variables for checking trace and sum of v^daggerv
-  std::complex<double> trace_s(.0,.0), trace_r(.0,.0), sum_r(.0,.0), sum_s(.0,.0);
-  // running over all timeslices on this process
-  for(size_t t = 0; t < T; t++){
+  std::vector< std::complex<double> > trace_s( param.evec_read_omp_num_threads, 0.0 );
+  std::vector< std::complex<double> > sum_s( param.evec_read_omp_num_threads, 0.0 );
+  std::complex<double> trace_omp_r( 0.0, 0.0 );
+  std::complex<double> sum_omp_r( 0.0, 0.0 );
+  std::complex<double> trace_mpi_r( 0.0, 0.0 );
+  std::complex<double> sum_mpi_r( 0.0, 0.0 );
 
+  // running over all timeslices on this process, spread over a user-specified number
+  // of threads
+  #pragma omp parallel for num_threads( param.evec_read_omp_num_threads )
+  for(size_t t = 0; t < T; t++){
     const int real_t = T*tmLQCD_params->proc_coords[0] + t;
  
     //setting up file
@@ -1236,7 +1253,7 @@ void LapH::distillery::read_eigenvectors(){
     if (infile) {
       for (size_t nev = 0; nev < number_of_eigen_vec; ++nev) {
         // reading the full vector
-        infile.read((char*) eigen_vec, 2*dim_row*sizeof(double));
+        infile.read((char*) eigen_vec[omp_get_thread_num()].data(), 2*dim_row*sizeof(double));
 
         //if(infile.gcount() != int(2*dim_row*sizeof(double))){
         if(!infile){
@@ -1246,7 +1263,7 @@ void LapH::distillery::read_eigenvectors(){
           exit(0);
         }
         // copying the correct components into V
-        copy_to_V(eigen_vec, t, nev);
+        copy_to_V(eigen_vec[omp_get_thread_num()].data(), t, nev);
       }
     }
     else {
@@ -1255,21 +1272,27 @@ void LapH::distillery::read_eigenvectors(){
     }
     infile.close();
     // computing trace and sum for check!
-    trace_s += (V[t].adjoint() * V[t]).trace();
-    sum_s += (V[t].adjoint() * V[t]).sum();
+    trace_s[ omp_get_thread_num() ] += (V[t].adjoint() * V[t]).trace();
+    sum_s[ omp_get_thread_num() ] += (V[t].adjoint() * V[t]).sum();
   }
-  delete[] eigen_vec;
+
+  // accumulate over threads
+  for( unsigned int i_th = 0; i_th < param.evec_read_omp_num_threads; ++i_th ){
+    trace_omp_r += trace_s[ i_th ];
+    sum_omp_r += sum_s[ i_th ];
+  }
+  // and over mpi
+  MPI_Allreduce(&trace_omp_r, &trace_mpi_r, 2, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(&sum_omp_r, &sum_mpi_r, 2, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
   // checking the trace and the sum of v^daggerv -------------------------------
-  MPI_Allreduce(&trace_s, &trace_r, 2, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  MPI_Allreduce(&sum_s, &sum_r, 2, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  if((fabs(trace_r.real() - Lt*number_of_eigen_vec) > 10e-6) ||
-     (fabs(sum_r.real()   - Lt*number_of_eigen_vec) > 10e-6) ||
-     (fabs(trace_r.imag()) > 10e-6) || (fabs(sum_r.imag()) > 10e-6) ){
+  if((fabs(trace_mpi_r.real() - Lt*number_of_eigen_vec) > 10e-6) ||
+     (fabs(sum_mpi_r.real()   - Lt*number_of_eigen_vec) > 10e-6) ||
+     (fabs(trace_mpi_r.imag()) > 10e-6) || (fabs(sum_mpi_r.imag()) > 10e-6) ){
     if(myid == 0)
       std::cout << "\n\nTrace of sum of V^daggerV is not correct! "
-                << "- abort program\n Sum = " << sum_r << " Trace = " 
-                << trace_r << "\n" << std::endl;
+                << "- abort program\n Sum = " << sum_mpi_r << " Trace = " 
+                << trace_mpi_r << "\n" << std::endl;
     MPI_Finalize();
     exit(0);
   }

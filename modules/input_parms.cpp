@@ -87,6 +87,16 @@ LapH::input_parameter& LapH::input_parameter::operator=
     nb_ev = other.nb_ev;
     verbose = other.verbose;
     endianness = other.endianness;
+
+    peram_gen_omp_num_threads = other.peram_gen_omp_num_threads;
+    eigen_omp_num_threads = other.eigen_omp_num_threads;
+    evec_read_omp_num_threads = other.evec_read_omp_num_threads;
+
+    use_zgemm = other.use_zgemm;
+
+#ifdef PG_QUDA_DIRECT
+    quda_direct = other.quda_direct;
+#endif
     
     nb_rnd = other.nb_rnd;
     if (rnd_id != NULL)
@@ -257,8 +267,12 @@ void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
   // scan infile and check arguments ----------------------------------------
   // configs
   peram_gen_omp_num_threads = 1;
-  reader += fscanf(infile, "omp_num_threads = %zu\n", &peram_gen_omp_num_threads);
+  reader += fscanf(infile, "omp_num_threads = %u\n", &peram_gen_omp_num_threads);
   if(myid==0) std::cout << "omp_num_threads = " << peram_gen_omp_num_threads << std::endl;
+
+  evec_read_omp_num_threads = 1;
+  reader += fscanf(infile, "evec_read_omp_num_threads = %u\n", &evec_read_omp_num_threads);
+  if(myid==0) std::cout << "evec_read_omp_num_threads = " << evec_read_omp_num_threads << std::endl;
 
 #ifdef PG_QUDA_DIRECT
   {
