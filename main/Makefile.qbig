@@ -25,8 +25,8 @@ MODULES = $(GENERAL)
 
 
 # tmLQCD paths
-TMLQCD = /qbigwork2/bartek/code/tmLQCD.quda_mg
-TMLQCD_build = /qbigwork2/bartek/build/kepler/tmLQCD.quda.mg
+TMLQCD = /hadron/bartek/code/bleeding_edge/tmLQCD.quda_work
+TMLQCD_build = /hadron/bartek/build/bleeding_edge/pascal/tmLQCD.quda_work.quda_develop
 TMLQCD_modules = ${TMLQCD_build}/quda_interface.o ${TMLQCD_build}/aligned_malloc.o \
                  ${TMLQCD_build}/matrix_utils.o ${TMLQCD_build}/source_generation.o \
                  ${TMLQCD_build}/gettime.o
@@ -41,23 +41,25 @@ LOGOPTION =
 LIMEPATH = /qbigwork2/bartek/libs/lime
 
 # additional include directories
-INCPATH = ../include /hadron/bartek/code/bastian-eigen $(TMLQCD)/ \
-          $(TMLQCD)/include $(TMLQCD_build)/ $(LIMEPATH)/include/
+INCPATH = ../include /usr/include/eigen3 $(TMLQCD)/ \
+          $(TMLQCD)/include $(TMLQCD_build)/ $(LIMEPATH)/include/ \
+					/qbigwork2/bartek/libs/lemon/broadwell/include 
 
 
 # additional libraries
 # need to link against probably all libs in $(TMLQCD)/lib/
 LIBS = wrapper hmc monomial operator solver init linalg hmc xchange rational \
-       io meas blas lapack blas m lime gfortran cuda cudart cublas quda
+       io meas blas lapack blas m lime gfortran cuda cudart cublas quda lemon
 
 LIBPATH = /usr/local/lib $(TMLQCD_build)/lib/  $(LIMEPATH)/lib/ \
-          /qbigwork2/bartek/libs/kepler/quda.mg/lib \
+          /qbigwork2/bartek/libs/pascal/quda_develop/lib/ \
+					/qbigwork2/bartek/libs/lemon/broadwell/lib/ \
           /opt/cuda-8.0/lib64  
 
 
 # scheduling and optimization options
-CXXFLAGS = -DPG_QUDA_DIRECT -Wall -pedantic -O3 -mtune=sandybridge -march=sandybridge -std=c++11 -fopenmp 
-CFLAGS =   -Wall -pedantic -O3 -mtune=sandybridge -march=sandybridge -std=c99 -DHAVE_CONFIG_H -fopenmp
+CXXFLAGS = -DPG_QUDA_DIRECT -Wall -pedantic -O3 -mtune=broadwell -march=broadwell -std=c++11 -fopenmp 
+CFLAGS = -Wall -pedantic -O3 -mtune=broadwell -march=broadwell -std=c99 -DHAVE_CONFIG_H -fopenmp
 LDFLAGS = -fopenmp 
 
 ############################## do not change ###################################
@@ -75,7 +77,7 @@ PGMS = $(MAIN) $(MODULES)
 
 # rule to make dependencies
 $(addsuffix .d,$(PGMS)): %.d: %.cpp Makefile
-	@ $(CXX) -ansi $< -MM $(addprefix -I,$(INCPATH)) -o $@
+	@ $(CXX) $(CXXFLAGS) $< -MM $(addprefix -I,$(INCPATH)) -o $@
 
 # rule to make dependencies
 $(addsuffix .d,$(CMODULES)): %.d: %.c Makefile

@@ -50,6 +50,15 @@ private:
   // terminated to avoid overwriting these files!
   void check_and_create_filenames();
 
+  /**
+   * @brief check if the number of elements read by fscanf corresponds to expectations
+   *
+   * @param nelem_actual number of elements actually returned by fscanf
+   * @param nelem_expected number of elements that was expected
+   * @param parname string constant name of the parameter
+   */
+  void verify_fscanf(int const nelem_actual, int const nelem_expected, char const * const parname);
+
 public:
   // -------------------------- DATA -----------------------------------------
   size_t dilution_size_so[3];      // SOURCE dilution sizes and types
@@ -78,6 +87,13 @@ public:
 
   bool use_zgemm;                  // for add_to_perambulator:  (true) -> use zgemm for multiplication with Vdagger
                                    //                          (false) -> use eigen multiplication
+
+  bool hack_clean;                 // when running in a reduced memory environment, perambulator writing
+                                   // may fail due to a lack of memory for the write buffer for the perambulator
+                                   // as a workaround for this, we offer to free all memory from the distillery
+                                   // at the cost of being able to do just a single random vector per job
+                                   // this cost is acceptable for lattices up to 32c64 as eigenvector reading
+                                   // only becomes a truly significant chunk of total time beyond that point
 
   // when tmLQCD is compiled without QUDA support, invert_quda_direct is not going to be defined
   // so we use the PG_QUDA_DIRECT preprocessor constant to enable and disable support for this

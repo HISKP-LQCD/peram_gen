@@ -33,14 +33,18 @@ int main(int argc, char *argv[]){
   // initialisation of distillery
   LapH::input_parameter param;
   param.parse_input_file(argc, argv);
-  if( param.nb_rnd > 1 ){
+  if( param.hack_clean && param.nb_rnd > 1 ){
     if( myid == 0 ){
       std::cout 
-        << "This version of peram_gen is a complete and utter hack and can only " << std::endl
-        << "do one random vector at a time. This is the result of a number of " << std::endl
-        << "memory conserving modifications. If you're not on dense GPU nodes " << std::endl
-        << "with far too little memory, you're better off using the master or zgemm " << std::endl
-        << "branches. peram_gen will terminate now" << std::endl;
+        << "You have chosen to run peram_gen with 'hack_clean = 1' "  << std::endl
+        << "but have set a number of random vectors > 1" << std::endl
+        << "The 'hack_clean' mode is a total and utter hack, clearing lots of memory before" << std::endl
+        << "the perambulator is written to disk, thereby restricting the code to " << std::endl
+        << "only being able to do one random vector at a time." << std::endl
+        << "If you wish to do more than one random vector in a single job, set 'hack_clean = 0'" << std::endl
+        << "and ensure that there is enough memory available for the perambulator write buffer" << std::endl
+        << "to fit in addition to all the other allocations" << std::endl
+        << "peram_gen will terminate now!" << std::endl;
       fflush(stdout);
     }
     tmLQCD_finalise();
@@ -146,22 +150,28 @@ int main(int argc, char *argv[]){
       } // end of loop over inversions
     } // OpenMP parallel section closing brace
 
-    // ----------- this is a total hack to use less memory
-    for(size_t i = 0; i < nb_of_inversions; ++i){
-      delete[] sources[i];
-      delete[] propagators_t1[i];
-      delete[] propagators_t0[i];
+    if( param.hack_clean ){
+      // ----------- this is a total hack to use less memory such that the write buffer
+      // allocated below to write the perambulator does not cause us to run out of
+      // memory when running on a machine with very limited memory
+      // this restricts us to doing only a single random vector per job, so
+      // it should only be used as a last resort
+      for(size_t i = 0; i < nb_of_inversions; ++i){
+        delete[] sources[i];
+        delete[] propagators_t1[i];
+        delete[] propagators_t0[i];
+      }
+      printf("HACK finalize tmLQCD\n");
+      fflush(stdout);
+      tmLQCD_finalise();
+      sleep(5);
+      MPI_Barrier(MPI_COMM_WORLD);
+      printf("HACK clean distillery\n");
+      fflush(stdout);
+      dis.hack_clean();
+      sleep(5);
+      // ------------ this is a total hack to use less memory
     }
-    printf("HACK finalize tmLQCD\n");
-    fflush(stdout);
-    tmLQCD_finalise();
-    sleep(5);
-    MPI_Barrier(MPI_COMM_WORLD);
-    printf("HACK clean distillery\n");
-    fflush(stdout);
-    dis.hack_clean();
-    sleep(5);
-    // ------------ this is a total hack to use less memory
 
     // constructing the perambulator
     MPI_Barrier(MPI_COMM_WORLD);
