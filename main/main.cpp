@@ -150,17 +150,22 @@ int main(int argc, char *argv[]){
       } // end of loop over inversions
     } // OpenMP parallel section closing brace
 
+    // free memory for sources and propagators to reduce memory load somewhat
+    // before propagaror is written
+    // these will be re-allocated above when the next random vector is about to be
+    // processed
+    for(size_t i = 0; i < nb_of_inversions; ++i){
+      delete[] sources[i];
+      delete[] propagators_t1[i];
+      delete[] propagators_t0[i];
+    }
+
     if( param.hack_clean ){
       // ----------- this is a total hack to use less memory such that the write buffer
       // allocated below to write the perambulator does not cause us to run out of
       // memory when running on a machine with very limited memory
       // this restricts us to doing only a single random vector per job, so
       // it should only be used as a last resort
-      for(size_t i = 0; i < nb_of_inversions; ++i){
-        delete[] sources[i];
-        delete[] propagators_t1[i];
-        delete[] propagators_t0[i];
-      }
       printf("HACK finalize tmLQCD\n");
       fflush(stdout);
       tmLQCD_finalise();
@@ -173,15 +178,15 @@ int main(int argc, char *argv[]){
       // ------------ this is a total hack to use less memory
     }
 
-    // constructing the perambulator
     MPI_Barrier(MPI_COMM_WORLD);
-    // creating new random vector and writing perambulator to disk -------------------
-    dis.write_perambulator_to_disk(rnd_id); // ---------------------------------------
+    // write perambulator to disc
+    dis.write_perambulator_to_disk(rnd_id);
     MPI_Barrier(MPI_COMM_WORLD);
+    // reset perambulator and create new random vector
     // memory reduction hack implies that this doesn't work anymore
-    //if(rnd_id < param.nb_rnd - 1)
-    //  dis.reset_perambulator_and_randomvector(rnd_id+1);
-    //MPI_Barrier(MPI_COMM_WORLD);
+    if(rnd_id < param.nb_rnd - 1 && !param.hack_clean)
+      dis.reset_perambulator_and_randomvector(rnd_id+1);
+    MPI_Barrier(MPI_COMM_WORLD);
   } // end of loop over random vectors
 
   dis.clean();
