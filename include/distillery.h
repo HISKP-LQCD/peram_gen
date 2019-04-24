@@ -12,24 +12,20 @@
 
 #include "macros.h"
 #include "ranlxs.h"
+#include "ranlxd.h"
 #include "input_parms.h"
 #include "tmLQCD.h"
 
-// from twisted mass code
-#ifdef __cplusplus                                                              
-extern "C"                                                                      
-{                                                                               
-#endif /* __cplusplus */     
-
-#include "ranlxd.h"
-#include "su3.h"
-#include "su3adj.h"
-#include "io/spinor.h"
-#include "start.h"
-
-#ifdef __cplusplus                                                              
-}                                                                               
-#endif  
+//// from twisted mass code
+//#ifdef __cplusplus                                                              
+//extern "C"                                                                      
+//{                                                                               
+//#endif /* __cplusplus */     
+//
+//
+//#ifdef __cplusplus                                                              
+//}                                                                               
+//#endif  
 
 
 #include "mpi.h"

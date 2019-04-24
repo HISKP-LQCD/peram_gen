@@ -82,6 +82,17 @@ else()
   message( FATAL_ERROR "Unable to find OpenMP!" )
 endif()
 
+find_package(Boost
+             REQUIRED
+             program_options
+             filesystem)
+if( Boost_FOUND )
+  link_directories( ${Boost_LIBRARY_DIRS} )
+  include_directories( ${Boost_INCLUDE_DIRS} )
+  link_libraries( ${Boost_LIBRARIES} )
+else()
+  message( FATAL_ERROR "Unable to find Boost (or one of the requested components, see CMakeLists.txt!")
+endif()
 
 set( MPI_HOME CACHE PATH "path to MPI library installation directory" )
 if( MPI_HOME )

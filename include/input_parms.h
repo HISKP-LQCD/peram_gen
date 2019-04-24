@@ -94,6 +94,13 @@ public:
                                    // at the cost of being able to do just a single random vector per job
                                    // this cost is acceptable for lattices up to 32c64 as eigenvector reading
                                    // only becomes a truly significant chunk of total time beyond that point
+  
+  bool create_rnd_vec_subdirs;     // when multiple random vectors are done in one job, it is desirable for
+                                   // peram_gen to create subdirectories of the form rnd_vec_%02d with the
+                                   // id of the random vector in the replacement
+                                   // however, when the code is run such that only one random vector is
+                                   // processed  
+
 
   // when tmLQCD is compiled without QUDA support, invert_quda_direct is not going to be defined
   // so we use the PG_QUDA_DIRECT preprocessor constant to enable and disable support for this

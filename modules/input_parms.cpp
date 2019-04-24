@@ -97,6 +97,8 @@ LapH::input_parameter& LapH::input_parameter::operator=
 #ifdef PG_QUDA_DIRECT
     quda_direct = other.quda_direct;
 #endif
+
+    create_rnd_vec_subdirs = other.create_rnd_vec_subdirs;
     
     nb_rnd = other.nb_rnd;
     if (rnd_id != NULL)
@@ -373,6 +375,14 @@ void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
     verify_fscanf(reader, 1, "hack_clean");
     hack_clean = (bool)temp;
     if(myid==0) std::cout << "hack_clean = " << hack_clean << std::endl;
+  }
+
+  {
+    unsigned int temp;
+    reader = fscanf(infile, "create_rnd_vec_subdirs = %u\n", &temp);
+    verify_fscanf(reader, 1, "hack_clean");
+    create_rnd_vec_subdirs = temp;
+    if(myid==0) std::cout << "create_rnd_vec_subdirs = " << create_rnd_vec_subdirs << std::endl;
   }
 
   // quarktype

@@ -1,6 +1,12 @@
 #include "./distillery.h"
 
 #include <climits>
+#include <boost/filesystem.hpp>
+#include <string>
+#include <iomanip>
+#include <sstream>
+
+namespace fs=boost::filesystem;
 
 // -----------------------------------------------------------------------------
 // swapping endianess ----------------------------------------------------------
@@ -851,7 +857,8 @@ void LapH::distillery::write_perambulator_to_disk(const size_t rnd_id) {
   MPI_Barrier(MPI_COMM_WORLD); 
   double time1 = MPI_Wtime();
 
-  char outfile[400];
+  const unsigned fname_length = 400;
+  char outfile[fname_length];
   FILE *fp = NULL;
   const size_t Lt = param.Lt;
   const size_t T = Lt/tmLQCD_params->nproc_t;
@@ -923,26 +930,46 @@ void LapH::distillery::write_perambulator_to_disk(const size_t rnd_id) {
           for (size_t i = 0; i < size_perambulator_entry; i++)
             perambulator_write[i] = swap_complex(perambulator_write[i]);
         // data path
-        std::string filename = param.outpath + "/perambulator";
+        //
+        // creating name and path of outfile
+        std::stringstream directory;
+        if( param.create_rnd_vec_subdirs ){
+          directory << param.outpath << "/rnd_vec_" << std::setfill('0') << std::setw(2) <<
+            rnd_id;
+        } else {
+          directory << param.outpath;
+        }
+
+        fs::path fs_path(directory.str());
+        if( !fs::exists(fs_path) ){
+          bool success = fs::create_directories(fs_path);
+          if( !success ){
+            std::cout << "Failed to create directory " << fs_path << std::endl;
+            exit(1);
+          }
+        }
+        std::string filename = directory.str() + "/perambulator";
         if(verbose) printf("writing perambulators from files:\n");
         else printf("\twriting perambulator\n");
         // create perambulator file name
-        sprintf(outfile,
-          "%s.rndvecnb%02d.%s.Tso%s%04d.Vso%s%04d.Dso%s%01d.Tsi%s%04d." \
-          "Ssi%s%04d.Dsi%s%01d.Csi%s%01d.smeared%01d.%05d",
-          filename.c_str(), (int) param.rnd_id[rnd_id], param.quarktype.c_str(),
-          param.dilution_type_so[0].c_str(), (int) param.dilution_size_so[0], 
-          param.dilution_type_so[1].c_str(), (int) param.dilution_size_so[1], 
-          param.dilution_type_so[2].c_str(), (int) param.dilution_size_so[2],
-          param.dilution_type_si[nbs][0].c_str(), 
-          (int) param.dilution_size_si[nbs][0], 
-          param.dilution_type_si[nbs][1].c_str(), 
-          (int) param.dilution_size_si[nbs][1], 
-          param.dilution_type_si[nbs][2].c_str(), 
-          (int) param.dilution_size_si[nbs][2], 
-          param.dilution_type_si[nbs][3].c_str(), 
-          (int) param.dilution_size_si[nbs][3], 
-          (int) nbr, (int) param.config);
+        int char_written = snprintf(outfile, fname_length,
+                                    "%s.rndvecnb%02d.%s.Tso%s%04d.Vso%s%04d.Dso%s%01d.Tsi%s%04d." \
+                                    "Ssi%s%04d.Dsi%s%01d.Csi%s%01d.smeared%01d.%05d",
+                                    filename.c_str(), (int) param.rnd_id[rnd_id], param.quarktype.c_str(),
+                                    param.dilution_type_so[0].c_str(), (int) param.dilution_size_so[0], 
+                                    param.dilution_type_so[1].c_str(), (int) param.dilution_size_so[1], 
+                                    param.dilution_type_so[2].c_str(), (int) param.dilution_size_so[2],
+                                    param.dilution_type_si[nbs][0].c_str(), 
+                                    (int) param.dilution_size_si[nbs][0], 
+                                    param.dilution_type_si[nbs][1].c_str(), 
+                                    (int) param.dilution_size_si[nbs][1], 
+                                    param.dilution_type_si[nbs][2].c_str(), 
+                                    (int) param.dilution_size_si[nbs][2], 
+                                    param.dilution_type_si[nbs][3].c_str(), 
+                                    (int) param.dilution_size_si[nbs][3], 
+                                    (int) nbr, (int) param.config);
+        if( char_written >= fname_length )
+          kill_program = 1;
      
         // writing data
         if((fp = fopen(outfile, "wb")) == NULL){
@@ -1022,43 +1049,46 @@ void LapH::distillery::set_random_vector(const size_t rnd_id) {
 void LapH::distillery::set_sink_random_vector(const size_t rnd_id, 
           const size_t sink_id, const size_t rnd_id_si, Eigen::VectorXcd& out) {
 
-  rlxd_init(2, 
-       ((param.seed[rnd_id])^param.config)^(param.seed_si[sink_id][rnd_id_si]));
-  // Reinterpret cast is NOT good style but necessary here to connect the data
-  // here with the structs of tmLQCD!
-  random_spinor_field_lexic(reinterpret_cast<spinor*>(&out[0]), 1, RN_Z2);
+  printf("set_sink_random_vector was never completely implemented! Terminating!\n");
+  exit(1);
 
-  
-  char outfile[400];
-  FILE *fp = NULL;
+  //rlxd_init(2, 
+  //     ((param.seed[rnd_id])^param.config)^(param.seed_si[sink_id][rnd_id_si]));
+  //// Reinterpret cast is NOT good style but necessary here to connect the data
+  //// here with the structs of tmLQCD!
+  //random_spinor_field_lexic(reinterpret_cast<spinor*>(&out[0]), 1, RN_Z2);
 
-  // writing data to disk
-  int myid = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-  int kill_program = 0; // flag to check if data were correctly written
-  if(myid == 0){  
-    std::string filename = "./randomvector_sink";
-    sprintf(outfile, "%s.%zu_%zu", filename.c_str(), rnd_id, sink_id);
-  
-    if((fp = fopen(outfile, "wb")) == NULL){
-      std::cout << "\n\nfailed to open file to write random vector: " 
-                << outfile << "\n" << std::endl;
-      kill_program = 1;
-    }   
-    int check_write_size = fwrite(&out[0], sizeof(std::complex<double>), 
-                                  out.size(), fp);
-    if(check_write_size != out.size()){
-      std::cout << "\n\ncould not write all data for sink rnd vector!\n: " 
-                << outfile << "\n" << std::endl;
-      kill_program = 1;
-    }   
-    fclose(fp);
-  }
-  MPI_Bcast(&kill_program, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  if(kill_program){ // kill program in case of write failure of rnd vecs
-    MPI_Finalize();
-    exit(0);
-  }
+  //
+  //char outfile[400];
+  //FILE *fp = NULL;
+
+  //// writing data to disk
+  //int myid = 0;
+  //MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+  //int kill_program = 0; // flag to check if data were correctly written
+  //if(myid == 0){  
+  //  std::string filename = "./randomvector_sink";
+  //  sprintf(outfile, "%s.%zu_%zu", filename.c_str(), rnd_id, sink_id);
+  //
+  //  if((fp = fopen(outfile, "wb")) == NULL){
+  //    std::cout << "\n\nfailed to open file to write random vector: " 
+  //              << outfile << "\n" << std::endl;
+  //    kill_program = 1;
+  //  }   
+  //  int check_write_size = fwrite(&out[0], sizeof(std::complex<double>), 
+  //                                out.size(), fp);
+  //  if(check_write_size != out.size()){
+  //    std::cout << "\n\ncould not write all data for sink rnd vector!\n: " 
+  //              << outfile << "\n" << std::endl;
+  //    kill_program = 1;
+  //  }   
+  //  fclose(fp);
+  //}
+  //MPI_Bcast(&kill_program, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  //if(kill_program){ // kill program in case of write failure of rnd vecs
+  //  MPI_Finalize();
+  //  exit(0);
+  //}
 
 }
 // -----------------------------------------------------------------------------
@@ -1112,7 +1142,9 @@ void LapH::distillery::read_random_vector() {
 // -----------------------------------------------------------------------------
 int LapH::distillery::write_random_vector_to_disk(size_t rnd_id){
 
-  char outfile[400];
+  const unsigned fname_length = 400;
+  char outfile[fname_length];
+  
   FILE *fp = NULL;
   const size_t Lt = param.Lt;
   const size_t verbose = param.verbose;
@@ -1132,15 +1164,38 @@ int LapH::distillery::write_random_vector_to_disk(size_t rnd_id){
       for(size_t row_i = 0; row_i < 4 * number_of_eigen_vec; ++row_i)
         rnd_vec_write[row_i + t * rnd_vec_length/Lt] = 
                                             swap_complex(random_vector[t](row_i));
+
   // creating name and path of outfile
-  std::string filename = param.outpath + "/randomvector";
+  std::stringstream directory;
+  if( param.create_rnd_vec_subdirs ){
+    directory << param.outpath << "/rnd_vec_" << std::setfill('0') << std::setw(2) <<
+      rnd_id;
+  } else {
+    directory << param.outpath;
+  }
+
+  fs::path fs_path(directory.str());
+  if( !fs::exists(fs_path) ){
+    bool success = fs::create_directories(fs_path);
+    if( !success ){
+      std::cout << "Failed to create directory " << fs_path << std::endl;
+      exit(1);
+    }
+  }
+
+  std::string filename = directory.str() + "/randomvector";
   if(verbose) printf("writing random vector to files:\n");
   else printf("\twriting random vector\n");
   int check_read_in = 0;
   // TODO: Must be changed to write stochastic sink random vectors
-  sprintf(outfile, "%s.rndvecnb%02d.%s.nbev%04d.%04d", filename.c_str(), 
-                    (int) param.rnd_id[rnd_id], param.quarktype.c_str(), 
-                    (int) param.nb_ev, (int) param.config);
+  int char_written = snprintf(outfile, fname_length, 
+                              "%s.rndvecnb%02d.%s.nbev%04d.%04d", filename.c_str(), 
+                              (int) param.rnd_id[rnd_id], param.quarktype.c_str(), 
+                              (int) param.nb_ev, (int) param.config);
+  int kill_program = 0;
+  if( char_written >= fname_length ){
+    kill_program = 1;
+  }
   if(verbose) printf("\twrite to file: %s\n", outfile);
   if((fp = fopen(outfile, "wb")) == NULL){
     std::cout << "failed to open file to write random vector: " 
@@ -1149,7 +1204,6 @@ int LapH::distillery::write_random_vector_to_disk(size_t rnd_id){
   }   
   check_read_in += fwrite(rnd_vec_write, sizeof(std::complex<double>),
                           rnd_vec_length, fp);
-  int kill_program = 0;
   if(check_read_in != (int) rnd_vec_length){
     kill_program = 1;
     std::cout << "\n\nfailed to write random vector: "
