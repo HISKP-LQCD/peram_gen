@@ -935,7 +935,7 @@ void LapH::distillery::write_perambulator_to_disk(const size_t rnd_id) {
         std::stringstream directory;
         if( param.create_rnd_vec_subdirs ){
           directory << param.outpath << "/rnd_vec_" << std::setfill('0') << std::setw(2) <<
-            rnd_id;
+            (int) param.rnd_id[rnd_id];
         } else {
           directory << param.outpath;
         }
@@ -1169,7 +1169,7 @@ int LapH::distillery::write_random_vector_to_disk(size_t rnd_id){
   std::stringstream directory;
   if( param.create_rnd_vec_subdirs ){
     directory << param.outpath << "/rnd_vec_" << std::setfill('0') << std::setw(2) <<
-      rnd_id;
+      (int) param.rnd_id[rnd_id];
   } else {
     directory << param.outpath;
   }
