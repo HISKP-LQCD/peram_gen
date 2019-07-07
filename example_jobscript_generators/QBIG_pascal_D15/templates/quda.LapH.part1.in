@@ -1,0 +1,13 @@
+omp_num_threads = 2
+evec_read_omp_num_threads = 3
+quda_direct = 1
+
+config = NSTORE
+total number of configs = 1
+distance between configs = 2
+
+Ls = 48
+Lt = 96
+
+nb_ev = 660
+

@@ -1,0 +1,61 @@
+ompnumthreads = 1
+
+L=48
+T=96
+
+DisableIOChecks = no
+DebugLevel = 2
+InitialStoreCounter = NSTORE
+Measurements = 1
+2kappamu = 0.000469083
+kappa = 0.156361
+
+BCAngleT = 1
+
+GaugeConfigInputFile = GCONFBASE
+UseEvenOdd = yes
+UseRelativePrecision = yes
+
+EnableSubProcess = no
+EnableLowmem = no
+
+SourceType = Volume
+ReadSource = no
+NoSamples = 1
+
+ranluxdlevel=2
+reproducerandomnumbers=no
+
+BeginExternalInverter QUDA
+  MGNumberOfLevels = 3
+  MGBlockSizesX=4,3
+  MGBlockSizesY=4,3
+  MGBlockSizesZ=4,3
+  MGBlockSizesT=3,2
+  MGCoarseMuFactor = 1.0, 1.0, 5.0
+  MGSetupMaxSolverIterations = 1000
+  MGSetupSolverTolerance = 5e-7
+  MGSetupSolver = cg
+  MGSmootherType = cagcr, cagcr, cagcr
+  MGCoarseSolverType = gcr, gcr, cagcr
+  MGSmootherPreIterations = 0
+  MGSmootherPostIterations = 6
+  MGSmootherTolerance = 0.2
+  MGOverUnderRelaxationFactor = 0.85
+  MGCoarseSolverTolerance = 0.2
+  MGCoarseMaxSolverIterations = 90
+  MGRunVerify = no
+EndExternalInverter
+
+BeginOperator TMWILSON
+  2kappamu = 0.003596303
+  kappa = 0.156361
+  Solver = mg
+  useexternalinverter = quda
+  SolverPrecision = 1e-19
+  MaxSolverIterations = 25000
+  usesloppyprecision = single
+  usecompression = 18
+  useevenodd = yes
+EndOperator
+
