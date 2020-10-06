@@ -516,7 +516,9 @@ void LapH::input_parameter::print_options() {
   if( myid == 0 ){
     std::cout << "omp_num_threads = " << peram_gen_omp_num_threads << std::endl;
     std::cout << "evec_read_omp_num_threads = " << evec_read_omp_num_threads << std::endl;
+#ifdef PG_QUDA_DIRECT
     std::cout << "quda_direct = " << quda_direct << std::endl;
+#endif
     std::cout << "config = " <<  config << std::endl;
     std::cout << "Ls = " <<  Ls << ", Lt = " <<  Lt << std::endl;
     std::cout << "nb_ev = " <<  nb_ev << ", nb_rnd = " <<  nb_rnd << std::endl;
