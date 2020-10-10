@@ -22,7 +22,9 @@ int main(int argc, char *argv[]){
   MPI_Comm mpi_comm_world_2;
   MPI_Comm_create( MPI_COMM_WORLD, world_group, &mpi_comm_world_2 );
 
+  // Eigen functions will be called from multiple threads
   Eigen::initParallel();
+  // but Eigen itself should run single-threaded
   Eigen::setNbThreads(1);
 
   // initialisation of the twisted mass stuff - MUST BE the first thing to do
@@ -33,6 +35,7 @@ int main(int argc, char *argv[]){
   // initialisation of distillery
   LapH::input_parameter param;
   param.parse_input_file(argc, argv);
+  
   if( param.hack_clean && param.nb_rnd > 1 ){
     if( myid == 0 ){
       std::cout 
@@ -52,7 +55,6 @@ int main(int argc, char *argv[]){
     exit(123);
   }
 
-  
   if(myid == 0) {
     std::cout << "processing config: " << param.config << "\n" << std::endl;
   }
@@ -85,11 +87,15 @@ int main(int argc, char *argv[]){
     // take some memory allocation overhead to reduce overall memory usage
     // these will be deleted before the perambulator is written (which
     // requires significant temporary storage)
+    double mem_time = MPI_Wtime();
     for(size_t i = 0; i < nb_of_inversions; ++i){
       sources[i] = new std::complex<double>[length];
       propagators_t1[i] = new std::complex<double>[length];
       propagators_t0[i] = new std::complex<double>[length];
     }
+    if( myid == 0 )
+      printf("memory allocation took %f seconds\n", MPI_Wtime() - mem_time);
+
 
     std::complex<double>** propagators_temp;
     omp_set_num_threads(param.peram_gen_omp_num_threads);
@@ -104,8 +110,11 @@ int main(int argc, char *argv[]){
           // the first thread generates the sources and does the inversions
           // the second thread moves on to the barrier and waits      
           if( num_threads == 1 || thread_id == 0 ){
-
+            
+            double t0_time = omp_get_wtime();
             dis.create_source(dil_t,dil_e,sources);
+            if(myid == 0)
+              printf("create_source took %f seconds\n", omp_get_wtime() - t0_time);
             
             for(size_t dil_d = 0; dil_d < param.dilution_size_so[2]; ++dil_d){        
 
@@ -116,6 +125,8 @@ int main(int argc, char *argv[]){
               // tmLQCD can also write the propagator, if requested
               unsigned int op_id = 0;
               unsigned int write_prop = 0;
+              
+              t0_time = omp_get_wtime();
 #ifndef PG_QUDA_DIRECT
               {  // open a block for convenience 
 #else
@@ -128,6 +139,8 @@ int main(int argc, char *argv[]){
                 // use standard inverter interface
                 tmLQCD_invert((double *) propagators_t0[dil_d], (double *) sources[dil_d], op_id, write_prop);
               } // close either the if statement or the block (see #ifndef PG_QUDA_DIRECT)
+              if(myid == 0)
+                printf("inversion took %f seconds\n", omp_get_wtime() - t0_time);
             }
           }
           
@@ -141,10 +154,13 @@ int main(int argc, char *argv[]){
           }
           #pragma omp barrier
           
-          // the second thread will enter add_to_perambulator while the first thread will move on to the next
+          // threads 1 to n will enter add_to_perambulator while the first thread will move on to the next
           // iteration, generate the next set of sources and do the inversion
-          if( num_threads == 1 || thread_id == 1 ){
+          if( num_threads == 1 || thread_id >= 1 ){
+            double t1_time = omp_get_wtime();
             dis.add_to_perambulator(dil_t,dil_e,propagators_t1);
+            if( num_threads == 1 || thread_id == 1 )
+              printf("add_to_perambulator took %f seconds\n", omp_get_wtime() - t1_time);
           }
         }
       } // end of loop over inversions

@@ -529,7 +529,7 @@ void LapH::distillery::add_to_perambulator(const size_t dil_t, const size_t dil_
     exit(0);
   }
 
-  Eigen::setNbThreads(1);
+  //Eigen::setNbThreads(1);
 
   const size_t Lt = param.Lt;
   const size_t Ls = param.Ls;
@@ -550,7 +550,9 @@ void LapH::distillery::add_to_perambulator(const size_t dil_t, const size_t dil_
     // checking if smeared or stochastic sink must be computed
     if (!param.dilution_type_si[nbs][1].compare("F")){ // smeared sink
       // running over sink time index
+#pragma omp for schedule(dynamic) nowait
       for(size_t t = 0; t < T; ++t){
+        //printf("add_to_perambulator thread: %d\n", omp_get_thread_num());
         if( param.use_zgemm ) {
         // ZGEMM MULTIPLICATION 
           
