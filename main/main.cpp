@@ -154,12 +154,12 @@ int main(int argc, char *argv[]){
           }
           #pragma omp barrier
           
-          // threads 1 to n will enter add_to_perambulator while the first thread will move on to the next
-          // iteration, generate the next set of sources and do the inversion
+          // threads 1 to n-1 will enter add_to_perambulator while the master thread will move on to the next
+          // iteration to generate the next set of sources and drive the inversion
           if( num_threads == 1 || thread_id >= 1 ){
             double t1_time = omp_get_wtime();
             dis.add_to_perambulator(dil_t,dil_e,propagators_t1);
-            if( num_threads == 1 || thread_id == 1 )
+            if( (num_threads == 1 || thread_id == 1) && myid == 0 )
               printf("add_to_perambulator took %f seconds\n", omp_get_wtime() - t1_time);
           }
         }
