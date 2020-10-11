@@ -1296,7 +1296,7 @@ void LapH::distillery::read_eigenvectors(){
 
   // running over all timeslices on this process, spread over a user-specified number
   // of threads
-  #pragma omp parallel for num_threads( param.evec_read_omp_num_threads )
+  #pragma omp parallel for num_threads( param.evec_read_omp_num_threads ) schedule(dynamic)
   for(size_t t = 0; t < T; t++){
     const int real_t = T*tmLQCD_params->proc_coords[0] + t;
  
