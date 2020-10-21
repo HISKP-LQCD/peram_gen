@@ -529,7 +529,11 @@ void LapH::distillery::add_to_perambulator(const size_t dil_t, const size_t dil_
     exit(0);
   }
 
-  //Eigen::setNbThreads(1);
+  // we use this version of the function in a kind of 'task-based-parallelism' setting
+  // where it is called from multiple threads
+  // as a result, we want to make doubly-sure that Eigen itself is running
+  // single-threaded
+  Eigen::setNbThreads(1);
 
   const size_t Lt = param.Lt;
   const size_t Ls = param.Ls;
