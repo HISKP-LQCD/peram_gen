@@ -158,12 +158,6 @@ static void check_dilution_input(const std::string type, const size_t max_size,
 // -----------------------------------------------------------------------------
 void LapH::input_parameter::check_input_parameters(){
 
-  if(peram_gen_omp_num_threads > 2 || peram_gen_omp_num_threads < 1){
-    std::cout << "The number of OMP threads for this version of peram_gen can only be 1 or 2! The selected value was " <<
-                 peram_gen_omp_num_threads << std::endl;
-    exit(1);
-  }
-
   if(config > 100000) {
     std::cout << "Please check whether configuration number is correct: " 
               << config << std::endl;
@@ -291,6 +285,9 @@ void LapH::input_parameter::parse_input_file(int argc, char *argv[]) {
   reader = fscanf(infile, "omp_num_threads = %u\n", &peram_gen_omp_num_threads);
   verify_fscanf(reader, 1, "omp_num_threads");
   if(myid==0) std::cout << "omp_num_threads = " << peram_gen_omp_num_threads << std::endl;
+
+  // we always set this to 1 in this version of the code
+  eigen_omp_num_threads = 1;
 
   evec_read_omp_num_threads = 1;
   reader = fscanf(infile, "evec_read_omp_num_threads = %u\n", &evec_read_omp_num_threads);

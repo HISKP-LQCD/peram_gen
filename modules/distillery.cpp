@@ -529,6 +529,10 @@ void LapH::distillery::add_to_perambulator(const size_t dil_t, const size_t dil_
     exit(0);
   }
 
+  // we use this version of the function in a kind of 'task-based-parallelism' setting
+  // where it is called from multiple threads
+  // as a result, we want to make doubly-sure that Eigen itself is running
+  // single-threaded
   Eigen::setNbThreads(1);
 
   const size_t Lt = param.Lt;
@@ -550,7 +554,9 @@ void LapH::distillery::add_to_perambulator(const size_t dil_t, const size_t dil_
     // checking if smeared or stochastic sink must be computed
     if (!param.dilution_type_si[nbs][1].compare("F")){ // smeared sink
       // running over sink time index
+#pragma omp for schedule(dynamic) nowait
       for(size_t t = 0; t < T; ++t){
+        //printf("add_to_perambulator thread: %d\n", omp_get_thread_num());
         if( param.use_zgemm ) {
         // ZGEMM MULTIPLICATION 
           
@@ -1294,7 +1300,7 @@ void LapH::distillery::read_eigenvectors(){
 
   // running over all timeslices on this process, spread over a user-specified number
   // of threads
-  #pragma omp parallel for num_threads( param.evec_read_omp_num_threads )
+  #pragma omp parallel for num_threads( param.evec_read_omp_num_threads ) schedule(dynamic)
   for(size_t t = 0; t < T; t++){
     const int real_t = T*tmLQCD_params->proc_coords[0] + t;
  

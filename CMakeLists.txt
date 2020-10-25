@@ -242,8 +242,6 @@ add_library(pgen
   ${CMAKE_CURRENT_BINARY_DIR}/modules/gitversion.cpp
   modules/distillery.cpp
   modules/random_vector.cpp
-  modules/ranlxd.cpp
-  modules/ranlxs.cpp
   modules/input_parms.cpp
 )
 
